@@ -1,0 +1,28 @@
+---
+- name: Install or update starship
+  ansible.builtin.import_tasks: tool.yml
+  vars:
+    tool_name: starship
+    tool_bin: /usr/local/bin/starship
+    tool_install: curl -sS https://starship.rs/install.sh | sh -s -- -y
+    tool_become: true
+
+- name: Create ~/.config
+  ansible.builtin.file:
+    path: "{{ home }}/.config"
+    state: directory
+    mode: "0755"
+
+- name: Install starship config
+  ansible.builtin.copy:
+    src: starship.toml
+    dest: "{{ home }}/.config/starship.toml"
+    mode: "0644"
+
+- name: Enable starship in bash
+  ansible.builtin.blockinfile:
+    path: "{{ home }}/.bashrc"
+    marker: "# {mark} starship (managed by vm-setup)"
+    block: eval "$(starship init bash)"
+    create: true
+    mode: "0644"

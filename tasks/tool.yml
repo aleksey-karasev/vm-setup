@@ -1,0 +1,22 @@
+---
+- name: "Check installed {{ tool_name }}"
+  ansible.builtin.command: "{{ tool_bin }} --version"
+  register: tool_before
+  changed_when: false
+  failed_when: false
+
+- name: "Install or update {{ tool_name }}"
+  ansible.builtin.shell:
+    cmd: "set -o pipefail; {{ tool_install if tool_before.rc != 0 else tool_update | default(tool_install) }}"
+    executable: /bin/bash
+  environment: "{{ tool_env | default({}) }}"
+  become: "{{ tool_become | default(false) }}"
+  register: tool_run
+  changed_when: false
+  failed_when: tool_run.rc not in tool_ok_rc | default([0])
+  when: tool_before.rc != 0 or upgrade | bool
+
+- name: "Record {{ tool_name }} version"
+  ansible.builtin.command: "{{ tool_bin }} --version"
+  register: tool_after
+  changed_when: tool_after.stdout != tool_before.stdout | default('')

@@ -1,0 +1,25 @@
+---
+- name: Install snapd
+  ansible.builtin.apt:
+    name: snapd
+    state: present
+  become: true
+
+- name: Wait for snapd to finish seeding
+  ansible.builtin.command: snap wait system seed.loaded
+  become: true
+  changed_when: false
+
+- name: Install snaps
+  ansible.builtin.command: "snap install {{ item }}"
+  args:
+    creates: "/snap/{{ item }}/current"
+  become: true
+  loop: "{{ snap_packages + (['chromium'] if chromium_source == 'snap' else []) }}"
+
+- name: Refresh snaps
+  ansible.builtin.command: snap refresh
+  become: true
+  register: snap_refresh
+  changed_when: "'All snaps up to date' not in snap_refresh.stderr"
+  when: upgrade | bool

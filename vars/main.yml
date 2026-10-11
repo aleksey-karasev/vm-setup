@@ -1,0 +1,55 @@
+---
+upgrade: true
+
+apt_packages:
+  - ffmpeg
+  - inkscape
+  - pandoc
+  - texlive-full
+  - ripgrep
+  - duf
+  - fd-find
+  - bat
+
+apt_packages_exclude: []
+
+snap_packages:
+  - drawio
+  - btop
+  - procs
+  - dust
+
+chromium_source: "{{ 'snap' if ansible_facts['distribution'] == 'Ubuntu' else 'apt' }}"
+
+uv_python_versions: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+uv_tools:
+  - ruff
+  - ty
+  - pytest
+  - cookiecutter
+  - pre-commit
+  - crewai
+  - mlflow
+  - httpx2[cli]
+  - huggingface-hub
+  - fastapi[standard]
+  - typer
+  - ipython
+  - kaggle
+  - marimo
+  - mkdocs
+  - openai-whisper
+  - streamrip --python 3.13
+  - uvicorn
+  - yt-dlp
+  - markitdown
+
+nerd_fonts:
+  - JetBrainsMono
+
+nvidia_enabled: false
+
+nvidia_driver_package: nvidia-open
+
+nvidia_cuda_package: cuda-toolkit

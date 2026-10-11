@@ -1,0 +1,32 @@
+---
+- name: Install or update uv
+  ansible.builtin.import_tasks: tool.yml
+  vars:
+    tool_name: uv
+    tool_bin: "{{ local_bin }}/uv"
+    tool_install: curl -LsSf https://astral.sh/uv/install.sh | sh
+    tool_update: "{{ local_bin }}/uv self update"
+
+- name: Install Python versions
+  ansible.builtin.command:
+    argv: "{{ [local_bin ~ '/uv', 'python', 'install'] + uv_python_versions }}"
+  register: uv_python_install
+  changed_when: "'Installed' in uv_python_install.stderr"
+
+- name: Upgrade Python versions to their latest patch release
+  ansible.builtin.command: "{{ local_bin }}/uv python upgrade"
+  register: uv_python_upgrade
+  changed_when: "'Installed' in uv_python_upgrade.stderr"
+  when: upgrade | bool
+
+- name: Install uv tools
+  ansible.builtin.command: "{{ local_bin }}/uv tool install {{ item }}"
+  register: uv_tool_install
+  changed_when: "'Installed' in uv_tool_install.stderr"
+  loop: "{{ uv_tools }}"
+
+- name: Upgrade uv tools
+  ansible.builtin.command: "{{ local_bin }}/uv tool upgrade --all"
+  register: uv_tool_upgrade
+  changed_when: "'Updated' in uv_tool_upgrade.stderr"
+  when: upgrade | bool

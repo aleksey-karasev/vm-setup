@@ -1,0 +1,17 @@
+---
+- name: Install or update pnpm
+  ansible.builtin.import_tasks: tool.yml
+  vars:
+    tool_name: pnpm
+    tool_bin: "{{ pnpm_home }}/bin/pnpm"
+    tool_install: curl -fsSL https://get.pnpm.io/install.sh | sh -
+    tool_update: "{{ pnpm_home }}/bin/pnpm self-update"
+    tool_env:
+      SHELL: /bin/bash
+
+- name: Install or update Node.js
+  ansible.builtin.import_tasks: tool.yml
+  vars:
+    tool_name: node
+    tool_bin: "{{ pnpm_home }}/bin/node"
+    tool_install: "{{ pnpm_home }}/bin/pnpm add -g node"

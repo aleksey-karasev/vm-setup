@@ -1,0 +1,94 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      args:
+        description: Extra bootstrap.sh arguments, such as "--tags snap" to test one part
+        default: ""
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  container:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:24.04", "ubuntu:26.04", "debian:13"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache /opt/ghc
+
+      - name: Boot a clean machine
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y expect
+          docker build --build-arg IMAGE=${{ matrix.image }} --build-arg USER_ID="$(id -u)" --tag machine tests
+          # systemd does not mount securityfs in a container, and snaps need it
+          # to see that the kernel has AppArmor.
+          docker run --detach --name machine --privileged --tmpfs /run:exec --tmpfs /run/lock \
+            --volume /sys/kernel/security:/sys/kernel/security \
+            --volume /var/lib/docker --volume /var/lib/containerd \
+            --volume "$GITHUB_WORKSPACE:/repo:ro" machine
+          # Snaps are mounted through loop devices, and a container's /dev
+          # does not get nodes for devices created after it started.
+          docker exec machine bash -c \
+            'for i in $(seq 0 255); do [ -e /dev/loop$i ] || mknod -m 660 /dev/loop$i b 7 $i; done'
+          timeout 120 bash -c \
+            'until docker exec machine systemctl is-system-running 2>/dev/null | grep -Eq "running|degraded"; do sleep 2; done'
+          docker exec machine systemctl --failed --no-legend
+
+      - name: First run installs everything
+        run: tests/bootstrap.exp --nvidia -e is_wsl=true ${{ inputs.args }}
+
+      - name: Second run changes nothing
+        run: |
+          tests/bootstrap.exp -e is_wsl=true ${{ inputs.args }} | tee second-run.log
+          grep -q 'changed=0 ' second-run.log
+
+      - name: Installed tools run
+        run: docker exec --user dev machine bash -li /repo/tests/check.sh --nvidia
+
+      - name: Machine state after a failure
+        if: failure()
+        run: |
+          df -h /
+          docker exec machine systemctl --failed --no-pager || true
+          docker exec machine journalctl --no-pager --lines 80 --priority warning || true
+
+  vm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      VM_SETUP_REPO: ${{ github.workspace }}
+      VM_SETUP_REF: ${{ github.sha }}
+      EXTRA_VARS: '{"apt_packages_exclude": ["texlive-full"]}'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/hostedtoolcache /opt/ghc
+
+      - name: First run installs everything
+        run: ./bootstrap.sh --nvidia -e "$EXTRA_VARS"
+
+      - name: Second run remembers --nvidia and changes nothing
+        run: |
+          ./bootstrap.sh -e "$EXTRA_VARS" | tee second-run.log
+          grep -q 'Install NVIDIA driver' second-run.log
+          grep -q 'changed=0 ' second-run.log
+
+      - name: Installed tools run
+        run: |
+          bash -li tests/check.sh --no-texlive --nvidia
+          modinfo --field version nvidia

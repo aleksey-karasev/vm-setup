@@ -1,0 +1,20 @@
+#!/usr/bin/expect --
+
+set timeout -1
+set password "vm-setup"
+
+spawn docker exec --tty --interactive --user dev \
+    --env VM_SETUP_REPO=/repo --env VM_SETUP_REF=$env(GITHUB_SHA) --env ANSIBLE_NOCOLOR=1 \
+    machine bash -c {cat /repo/bootstrap.sh | bash -s -- "$@"} bash {*}$argv
+
+
+expect {
+    -re {[Pp]assword[^\r\n]*: ?$} {
+        send -- "$password\r"
+        exp_continue
+    }
+    eof
+}
+
+lassign [wait] pid spawn_id os_error status
+exit $status

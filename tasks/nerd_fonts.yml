@@ -1,0 +1,44 @@
+---
+- name: Install or update Nerd Fonts
+  vars:
+    nerd_fonts_dir: "{{ home }}/.local/share/fonts/NerdFonts"
+    nerd_fonts_release: "{{ nerd_fonts_latest.location | basename }}"
+  block:
+    - name: Look up the latest Nerd Fonts release
+      ansible.builtin.uri:
+        url: https://github.com/ryanoasis/nerd-fonts/releases/latest
+        follow_redirects: none
+        status_code: 302
+      register: nerd_fonts_latest
+
+    - name: Create font directories
+      ansible.builtin.file:
+        path: "{{ nerd_fonts_dir }}/{{ item }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ nerd_fonts }}"
+
+    - name: Download fonts
+      ansible.builtin.unarchive:
+        src: "https://github.com/ryanoasis/nerd-fonts/releases/download/{{ nerd_fonts_release }}/{{ item }}.tar.xz"
+        dest: "{{ nerd_fonts_dir }}/{{ item }}"
+        remote_src: true
+      loop: "{{ nerd_fonts }}"
+      when: installed_release == '' or (upgrade | bool and installed_release != nerd_fonts_release)
+      vars:
+        release_file: "{{ nerd_fonts_dir }}/{{ item }}/.release"
+        installed_release: "{{ lookup('ansible.builtin.file', release_file, errors='ignore') | default('', true) }}"
+
+    - name: Record the installed release
+      ansible.builtin.copy:
+        content: "{{ nerd_fonts_release }}"
+        dest: "{{ nerd_fonts_dir }}/{{ item }}/.release"
+        mode: "0644"
+        force: "{{ upgrade | bool }}"
+      loop: "{{ nerd_fonts }}"
+      register: nerd_fonts_recorded
+
+    - name: Rebuild the font cache
+      ansible.builtin.command: fc-cache -f
+      changed_when: true
+      when: nerd_fonts_recorded is changed

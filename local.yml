@@ -1,0 +1,156 @@
+---
+- name: Prepare dev VM
+  hosts: localhost
+  connection: local
+  vars_files:
+    - vars/main.yml
+  vars:
+    home: "{{ lookup('ansible.builtin.env', 'HOME') }}"
+    username: "{{ ansible_facts['user_id'] }}"
+    local_bin: "{{ home }}/.local/bin"
+    pnpm_home: "{{ home }}/.local/share/pnpm"
+    machine_vars_file: "{{ home }}/.config/vm-setup/vars.yml"
+    deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
+    is_wsl: "{{ 'microsoft' in ansible_facts['kernel'] | lower }}"
+    ansible_become_exe: "{{ 'sudo.ws' if '/usr/bin/sudo.ws' is exists else 'sudo' }}"
+  environment:
+    PNPM_HOME: "{{ pnpm_home }}"
+    PATH: "{{ local_bin }}:{{ pnpm_home }}/bin:{{ lookup('ansible.builtin.env', 'PATH') }}"
+
+  tasks:
+    - name: Load per-machine overrides
+      ansible.builtin.include_vars:
+        file: "{{ machine_vars_file }}"
+      when: machine_vars_file is file
+      tags: [always]
+
+    - name: Check the distribution
+      ansible.builtin.assert:
+        that: ansible_facts['distribution'] in ['Ubuntu', 'Debian']
+        fail_msg: "Only Ubuntu and Debian are supported, not {{ ansible_facts['distribution'] }}."
+        quiet: true
+      tags: [always]
+
+    - name: Install prerequisites
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - fontconfig
+          - git
+          - libatomic1
+          - python3-debian
+          - unzip
+          - xz-utils
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      become: true
+      tags: [always]
+
+    - name: Create ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ local_bin }}"
+        state: directory
+        mode: "0755"
+      tags: [always]
+
+    - name: Put ~/.local/bin on PATH
+      ansible.builtin.blockinfile:
+        path: "{{ home }}/.bashrc"
+        marker: "# {mark} ~/.local/bin (managed by vm-setup)"
+        block: |
+          case ":$PATH:" in
+            *":$HOME/.local/bin:"*) ;;
+            *) export PATH="$HOME/.local/bin:$PATH" ;;
+          esac
+        create: true
+        mode: "0644"
+      tags: [always]
+
+    - name: Install the vm-setup command
+      ansible.builtin.file:
+        src: "{{ playbook_dir }}/bootstrap.sh"
+        dest: "{{ local_bin }}/vm-setup"
+        state: link
+      tags: [always]
+
+    - name: Apt packages
+      ansible.builtin.import_tasks: tasks/apt.yml
+      tags: [apt]
+
+    - name: Snap packages
+      ansible.builtin.import_tasks: tasks/snap.yml
+      tags: [snap]
+
+    - name: Docker Engine
+      ansible.builtin.import_tasks: tasks/docker.yml
+      tags: [docker]
+
+    - name: GitHub CLI
+      ansible.builtin.import_tasks: tasks/github_cli.yml
+      tags: [gh]
+
+    - name: Uv, Python versions and Python tools
+      ansible.builtin.import_tasks: tasks/uv.yml
+      tags: [uv]
+
+    - name: Pnpm and Node.js
+      ansible.builtin.import_tasks: tasks/pnpm.yml
+      tags: [pnpm, node]
+
+    - name: Rtk
+      ansible.builtin.import_tasks: tasks/tool.yml
+      vars:
+        tool_name: rtk
+        tool_bin: "{{ local_bin }}/rtk"
+        tool_install: curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
+      tags: [rtk]
+
+    - name: Rclone
+      ansible.builtin.import_tasks: tasks/tool.yml
+      vars:
+        tool_name: rclone
+        tool_bin: /usr/bin/rclone
+        tool_install: curl -fsSL https://rclone.org/install.sh | bash
+        tool_become: true
+        tool_ok_rc: [0, 3]
+      tags: [rclone]
+
+    - name: Claude Code
+      ansible.builtin.import_tasks: tasks/tool.yml
+      vars:
+        tool_name: Claude Code
+        tool_bin: "{{ local_bin }}/claude"
+        tool_install: curl -fsSL https://claude.ai/install.sh | bash
+        tool_update: "{{ local_bin }}/claude update"
+      tags: [claude]
+
+    - name: DuckDB
+      ansible.builtin.import_tasks: tasks/tool.yml
+      vars:
+        tool_name: DuckDB
+        tool_bin: "{{ local_bin }}/duckdb"
+        tool_install: curl -fsSL https://install.duckdb.org | sh
+      tags: [duckdb]
+
+    - name: Starship prompt
+      ansible.builtin.import_tasks: tasks/starship.yml
+      tags: [starship]
+
+    - name: Nerd Fonts
+      ansible.builtin.import_tasks: tasks/nerd_fonts.yml
+      tags: [fonts]
+
+    - name: NVIDIA driver, CUDA and container toolkit
+      ansible.builtin.import_tasks: tasks/nvidia.yml
+      when: nvidia_enabled | bool
+      tags: [nvidia]
+
+    - name: Upgrade installed apt packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+      become: true
+      when: upgrade | bool
+      tags: [apt]

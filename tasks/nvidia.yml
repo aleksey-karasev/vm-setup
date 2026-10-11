@@ -1,0 +1,72 @@
+---
+- name: Add NVIDIA CUDA apt repository
+  ansible.builtin.apt:
+    deb: "https://developer.download.nvidia.com/compute/cuda/repos/{{ nvidia_cuda_repo }}/x86_64/cuda-keyring_1.1-1_all.deb"
+  become: true
+  vars:
+    nvidia_release: "{{ ansible_facts['distribution_version'] | replace('.', '') if ansible_facts['distribution'] == 'Ubuntu' else ansible_facts['distribution_major_version'] }}"
+    nvidia_distro_repo: "{{ ansible_facts['distribution'] | lower }}{{ nvidia_release }}"
+    nvidia_cuda_repo: "{{ 'wsl-ubuntu' if is_wsl | bool and ansible_facts['distribution'] == 'Ubuntu' else nvidia_distro_repo }}"
+
+- name: Install CUDA toolkit
+  ansible.builtin.apt:
+    name: "{{ nvidia_cuda_package }}"
+    state: present
+    update_cache: true
+  become: true
+
+- name: Put the CUDA tools on PATH
+  ansible.builtin.copy:
+    content: |
+      export PATH="/usr/local/cuda/bin${PATH:+:$PATH}"
+    dest: /etc/profile.d/cuda.sh
+    mode: "0644"
+  become: true
+
+- name: Install kernel headers for the NVIDIA kernel module
+  ansible.builtin.apt:
+    name: "linux-headers-{{ ansible_facts['kernel'] }}"
+    state: present
+  become: true
+  when: not (is_wsl | bool)
+
+- name: Install NVIDIA driver
+  ansible.builtin.apt:
+    name: "{{ nvidia_driver_package }}"
+    state: present
+  become: true
+  register: nvidia_driver
+  when: not (is_wsl | bool)
+
+- name: Install NVIDIA Container Toolkit
+  ansible.builtin.apt:
+    name: nvidia-container-toolkit
+    state: present
+  become: true
+
+- name: Read the Docker daemon config
+  ansible.builtin.slurp:
+    src: /etc/docker/daemon.json
+  register: docker_daemon_json
+  failed_when: false
+
+- name: Register the NVIDIA runtime with Docker
+  ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+  become: true
+  register: nvidia_runtime
+  changed_when: true
+  when: "'nvidia-container-runtime' not in docker_daemon_json.content | default('') | b64decode"
+
+- name: Restart Docker to load the NVIDIA runtime
+  ansible.builtin.systemd_service:
+    name: docker
+    state: restarted
+  become: true
+  when:
+    - nvidia_runtime is changed
+    - ansible_facts['service_mgr'] == 'systemd'
+
+- name: Ask for a reboot after a driver change
+  ansible.builtin.debug:
+    msg: The NVIDIA driver was installed or updated. Reboot to load it.
+  when: nvidia_driver is changed

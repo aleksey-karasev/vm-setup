@@ -1,0 +1,18 @@
+---
+- name: Install apt packages
+  ansible.builtin.apt:
+    name: "{{ (apt_packages | difference(apt_packages_exclude)) + (['chromium'] if chromium_source == 'apt' else []) }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Expose fd and bat under their upstream names
+  ansible.builtin.file:
+    src: "/usr/bin/{{ item.packaged }}"
+    dest: "{{ local_bin }}/{{ item.upstream }}"
+    state: link
+  loop:
+    - { upstream: fd, packaged: fdfind }
+    - { upstream: bat, packaged: batcat }
+  when: ('/usr/bin/' ~ item.packaged) is exists
