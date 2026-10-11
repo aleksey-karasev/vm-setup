@@ -26,8 +26,8 @@
 
     - name: Check the distribution
       ansible.builtin.assert:
-        that: ansible_facts['distribution'] in ['Ubuntu', 'Debian']
-        fail_msg: "Only Ubuntu and Debian are supported, not {{ ansible_facts['distribution'] }}."
+        that: ansible_facts['distribution'] in ['Ubuntu', 'Debian', 'Archlinux']
+        fail_msg: "Only Ubuntu, Debian and Arch Linux are supported, not {{ ansible_facts['distribution'] }}."
         quiet: true
       tags: [always]
 
@@ -46,6 +46,29 @@
         update_cache: true
         cache_valid_time: 3600
       become: true
+      when: ansible_facts['os_family'] == 'Debian'
+      tags: [always]
+
+    - name: Upgrade installed pacman packages
+      ansible.builtin.command: pacman -Syu --noconfirm
+      environment:
+        LC_ALL: C
+      become: true
+      register: pacman_upgrade
+      changed_when: "'there is nothing to do' not in pacman_upgrade.stdout"
+      when:
+        - ansible_facts['os_family'] == 'Archlinux'
+        - upgrade | bool
+      tags: [pacman, docker, gh, nvidia]
+
+    - name: Install prerequisites
+      ansible.builtin.command: pacman -S --needed --noconfirm ca-certificates curl fontconfig git libatomic tar unzip xz
+      environment:
+        LC_ALL: C
+      become: true
+      register: pacman_prerequisites
+      changed_when: "'there is nothing to do' not in pacman_prerequisites.stdout"
+      when: ansible_facts['os_family'] == 'Archlinux'
       tags: [always]
 
     - name: Create ~/.local/bin
@@ -77,11 +100,18 @@
 
     - name: Apt packages
       ansible.builtin.import_tasks: tasks/apt.yml
+      when: ansible_facts['os_family'] == 'Debian'
       tags: [apt]
 
     - name: Snap packages
       ansible.builtin.import_tasks: tasks/snap.yml
+      when: ansible_facts['os_family'] == 'Debian'
       tags: [snap]
+
+    - name: Pacman packages
+      ansible.builtin.import_tasks: tasks/pacman.yml
+      when: ansible_facts['os_family'] == 'Archlinux'
+      tags: [pacman]
 
     - name: Docker Engine
       ansible.builtin.import_tasks: tasks/docker.yml
@@ -152,5 +182,7 @@
         update_cache: true
         upgrade: dist
       become: true
-      when: upgrade | bool
+      when:
+        - ansible_facts['os_family'] == 'Debian'
+        - upgrade | bool
       tags: [apt]

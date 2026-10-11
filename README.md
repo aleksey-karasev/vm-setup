@@ -1,8 +1,8 @@
 # vm-setup
 
-Turns a clean Ubuntu or Debian machine into a ready dev VM with one command,
-and upgrades everything each time it is run again. Ansible runs on the machine
-itself through `ansible-pull`, so there is no control node.
+Turns a clean Ubuntu, Debian or Arch Linux machine into a ready dev VM with one
+command, and upgrades everything each time it is run again. Ansible runs on the
+machine itself through `ansible-pull`, so there is no control node.
 
 ## Install
 
@@ -27,12 +27,12 @@ if one is needed. Log out and back in afterwards to get the new `PATH` and the
 vm-setup
 ```
 
-Pulls the repo and applies it again, bringing apt packages, snaps and every
+Pulls the repo and applies it again, bringing system packages, snaps and every
 tool to the newest version. Arguments go to `ansible-pull`:
 
 ```bash
 vm-setup --tags uv,claude      # only some components
-vm-setup --skip-tags apt,snap
+vm-setup --skip-tags apt,snap  # pacman on Arch
 vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 ```
 
@@ -42,17 +42,24 @@ vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 | --- | --- | --- |
 | `apt` | ffmpeg, inkscape, pandoc, texlive-full, ripgrep, duf, fd, bat | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
-| `docker` | Docker Engine, buildx and compose plugins | Docker's apt repository |
-| `gh` | GitHub CLI | GitHub's apt repository |
+| `pacman` | on Arch, everything in the `apt` and `snap` rows | pacman |
+| `docker` | Docker Engine, buildx and compose plugins | Docker's apt repository (Arch: pacman) |
+| `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman) |
 | `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` | uv installer |
 | `pnpm` | pnpm, Node.js | pnpm installer |
 | `rtk`, `rclone`, `claude`, `duckdb` | rtk, rclone, Claude Code, DuckDB CLI | each tool's installer |
 | `starship` | starship, its config and bash init | starship installer, `files/starship.toml` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
-| `nvidia` | driver, CUDA toolkit, container toolkit (opt-in) | NVIDIA's CUDA apt repository |
+| `nvidia` | driver, CUDA toolkit, container toolkit (opt-in) | NVIDIA's CUDA apt repository (Arch: pacman) |
 
 `fd` and `bat` are linked into `~/.local/bin`, because apt installs them as
 `fdfind` and `batcat`.
+
+On Arch, TeX Live is `texlive-meta` and `texlive-lang`, without the 3 GB of
+`texlive-doc`. Arch does not support partial upgrades, so the system is
+upgraded before pacman installs anything, also when only `docker`, `gh` or
+`nvidia` is selected. With `upgrade=false` pacman installs from the package
+databases already on the machine.
 
 ## Configuration
 
@@ -62,6 +69,7 @@ To change one machine only, override values in `~/.config/vm-setup/vars.yml`:
 
 ```yaml
 apt_packages_exclude: [texlive-full]
+pacman_packages_exclude: [texlive-meta, texlive-lang]
 nerd_fonts: [JetBrainsMono, FiraCode]
 ```
 
@@ -69,12 +77,15 @@ nerd_fonts: [JetBrainsMono, FiraCode]
 
 - the `nvidia-open` driver is installed (reboot afterwards), except under WSL2,
   where the Windows driver is used
-- `cuda-toolkit` is installed, with `/usr/local/cuda/bin` on `PATH`
+- `cuda-toolkit` is installed, with `/usr/local/cuda/bin` on `PATH` (on Arch:
+  `cuda`, with `/opt/cuda/bin`)
 - `nvidia-container-toolkit` is registered with Docker, so
   `docker run --gpus all` works
 
 `nvidia_driver_package` and `nvidia_cuda_package` select other packages, such
-as `cuda-drivers` for older GPUs or `cuda-toolkit-12-8` to pin CUDA.
+as `cuda-drivers` for older GPUs or `cuda-toolkit-12-8` to pin CUDA. On Arch,
+`nvidia-open` is built for the `linux` kernel: use `nvidia-open-lts` for
+`linux-lts`, or `nvidia-open-dkms` and the kernel's headers for any other.
 
 To add a tool, put it in the matching list in `vars/main.yml`. For a
 `curl | sh` installer, import `tasks/tool.yml` in `local.yml`, as is done for
@@ -82,8 +93,8 @@ rtk.
 
 ## Supported systems
 
-Ubuntu 24.04, Ubuntu 26.04 and Debian 13, on a VM or under WSL2 with
-`systemd=true` in `/etc/wsl.conf` (snaps need systemd).
+Ubuntu 24.04, Ubuntu 26.04, Debian 13 and Arch Linux, on a VM or under WSL2
+with `systemd=true` in `/etc/wsl.conf` (snaps need systemd).
 
 On Ubuntu 26.04 root tasks run through `sudo.ws`, because Ansible cannot read
 the password prompt of the default sudo-rs.
@@ -98,13 +109,13 @@ ansible-playbook local.yml --ask-become-pass
 
 Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 
-- `ubuntu:24.04`, `ubuntu:26.04` and `debian:13` boot as clean systemd
-  containers with a sudo password, install the full default set, must change
-  nothing on a second run, and then execute every installed tool
-  ([tests/check.sh](tests/check.sh)).
+- `ubuntu:24.04`, `ubuntu:26.04`, `debian:13` and `archlinux:latest` boot as
+  clean systemd containers with a sudo password, install the full default
+  set, must change nothing on a second run, and then execute every installed
+  tool ([tests/check.sh](tests/check.sh)).
 - The hosted Ubuntu 24.04 VM does the same without texlive-full, and builds
   the NVIDIA driver.
 
-Not covered: the driver on 26.04 and Debian, since containers share the
+Not covered: the driver on 26.04, Debian and Arch, since containers share the
 runner's kernel, and anything that needs a GPU. A manual run accepts extra
 `bootstrap.sh` arguments, such as `--tags snap`.

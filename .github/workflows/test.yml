@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ["ubuntu:24.04", "ubuntu:26.04", "debian:13"]
+        image: ["ubuntu:24.04", "ubuntu:26.04", "debian:13", "archlinux:latest"]
     steps:
       - uses: actions/checkout@v5
 
@@ -34,14 +34,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y expect
           docker build --build-arg IMAGE=${{ matrix.image }} --build-arg USER_ID="$(id -u)" --tag machine tests
-          # systemd does not mount securityfs in a container, and snaps need it
-          # to see that the kernel has AppArmor.
           docker run --detach --name machine --privileged --tmpfs /run:exec --tmpfs /run/lock \
             --volume /sys/kernel/security:/sys/kernel/security \
             --volume /var/lib/docker --volume /var/lib/containerd \
             --volume "$GITHUB_WORKSPACE:/repo:ro" machine
-          # Snaps are mounted through loop devices, and a container's /dev
-          # does not get nodes for devices created after it started.
           docker exec machine bash -c \
             'for i in $(seq 0 255); do [ -e /dev/loop$i ] || mknod -m 660 /dev/loop$i b 7 $i; done'
           timeout 120 bash -c \
@@ -50,6 +46,10 @@ jobs:
 
       - name: First run installs everything
         run: tests/bootstrap.exp --nvidia -e is_wsl=true ${{ inputs.args }}
+
+      - name: Take in packages published during the first run
+        if: startsWith(matrix.image, 'archlinux')
+        run: docker exec machine pacman -Syu --noconfirm
 
       - name: Second run changes nothing
         run: |
