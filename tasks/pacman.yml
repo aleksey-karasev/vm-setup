@@ -1,0 +1,9 @@
+---
+- name: Install pacman packages
+  ansible.builtin.command:
+    argv: "{{ ['pacman', '-S', '--needed', '--noconfirm'] + (pacman_packages | difference(pacman_packages_exclude)) }}"
+  environment:
+    LC_ALL: C
+  become: true
+  register: pacman_install
+  changed_when: "'there is nothing to do' not in pacman_install.stdout"

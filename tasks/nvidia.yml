@@ -1,48 +1,73 @@
 ---
-- name: Add NVIDIA CUDA apt repository
-  ansible.builtin.apt:
-    deb: "https://developer.download.nvidia.com/compute/cuda/repos/{{ nvidia_cuda_repo }}/x86_64/cuda-keyring_1.1-1_all.deb"
-  become: true
-  vars:
-    nvidia_release: "{{ ansible_facts['distribution_version'] | replace('.', '') if ansible_facts['distribution'] == 'Ubuntu' else ansible_facts['distribution_major_version'] }}"
-    nvidia_distro_repo: "{{ ansible_facts['distribution'] | lower }}{{ nvidia_release }}"
-    nvidia_cuda_repo: "{{ 'wsl-ubuntu' if is_wsl | bool and ansible_facts['distribution'] == 'Ubuntu' else nvidia_distro_repo }}"
+- name: Install from NVIDIA's CUDA apt repository
+  when: ansible_facts['os_family'] == 'Debian'
+  block:
+    - name: Add NVIDIA CUDA apt repository
+      ansible.builtin.apt:
+        deb: "https://developer.download.nvidia.com/compute/cuda/repos/{{ nvidia_cuda_repo }}/x86_64/cuda-keyring_1.1-1_all.deb"
+      become: true
+      vars:
+        nvidia_release: "{{ ansible_facts['distribution_version'] | replace('.', '') if ansible_facts['distribution'] == 'Ubuntu' else ansible_facts['distribution_major_version'] }}"
+        nvidia_distro_repo: "{{ ansible_facts['distribution'] | lower }}{{ nvidia_release }}"
+        nvidia_cuda_repo: "{{ 'wsl-ubuntu' if is_wsl | bool and ansible_facts['distribution'] == 'Ubuntu' else nvidia_distro_repo }}"
 
-- name: Install CUDA toolkit
-  ansible.builtin.apt:
-    name: "{{ nvidia_cuda_package }}"
-    state: present
-    update_cache: true
-  become: true
+    - name: Install CUDA toolkit
+      ansible.builtin.apt:
+        name: "{{ nvidia_cuda_package }}"
+        state: present
+        update_cache: true
+      become: true
 
-- name: Put the CUDA tools on PATH
-  ansible.builtin.copy:
-    content: |
-      export PATH="/usr/local/cuda/bin${PATH:+:$PATH}"
-    dest: /etc/profile.d/cuda.sh
-    mode: "0644"
-  become: true
+    - name: Put the CUDA tools on PATH
+      ansible.builtin.copy:
+        content: |
+          export PATH="/usr/local/cuda/bin${PATH:+:$PATH}"
+        dest: /etc/profile.d/cuda.sh
+        mode: "0644"
+      become: true
 
-- name: Install kernel headers for the NVIDIA kernel module
-  ansible.builtin.apt:
-    name: "linux-headers-{{ ansible_facts['kernel'] }}"
-    state: present
-  become: true
-  when: not (is_wsl | bool)
+    - name: Install kernel headers for the NVIDIA kernel module
+      ansible.builtin.apt:
+        name: "linux-headers-{{ ansible_facts['kernel'] }}"
+        state: present
+      become: true
+      when: not (is_wsl | bool)
 
-- name: Install NVIDIA driver
-  ansible.builtin.apt:
-    name: "{{ nvidia_driver_package }}"
-    state: present
-  become: true
-  register: nvidia_driver
-  when: not (is_wsl | bool)
+    - name: Install NVIDIA driver
+      ansible.builtin.apt:
+        name: "{{ nvidia_driver_package }}"
+        state: present
+      become: true
+      register: nvidia_driver
+      when: not (is_wsl | bool)
 
-- name: Install NVIDIA Container Toolkit
-  ansible.builtin.apt:
-    name: nvidia-container-toolkit
-    state: present
+    - name: Install NVIDIA Container Toolkit
+      ansible.builtin.apt:
+        name: nvidia-container-toolkit
+        state: present
+      become: true
+
+- name: Install from the Arch repositories
+  when: ansible_facts['os_family'] == 'Archlinux'
+  environment:
+    LC_ALL: C
   become: true
+  block:
+    - name: Install CUDA toolkit
+      ansible.builtin.command: "pacman -S --needed --noconfirm {{ nvidia_cuda_package }}"
+      register: nvidia_cuda_pacman
+      changed_when: "'there is nothing to do' not in nvidia_cuda_pacman.stdout"
+
+    - name: Install NVIDIA driver
+      ansible.builtin.command: "pacman -S --needed --noconfirm {{ nvidia_driver_package }}"
+      register: nvidia_driver_pacman
+      changed_when: "'there is nothing to do' not in nvidia_driver_pacman.stdout"
+      when: not (is_wsl | bool)
+
+    - name: Install NVIDIA Container Toolkit
+      ansible.builtin.command: pacman -S --needed --noconfirm nvidia-container-toolkit
+      register: nvidia_container_toolkit_pacman
+      changed_when: "'there is nothing to do' not in nvidia_container_toolkit_pacman.stdout"
 
 - name: Read the Docker daemon config
   ansible.builtin.slurp:
@@ -69,4 +94,4 @@
 - name: Ask for a reboot after a driver change
   ansible.builtin.debug:
     msg: The NVIDIA driver was installed or updated. Reboot to load it.
-  when: nvidia_driver is changed
+  when: nvidia_driver is changed or nvidia_driver_pacman is changed

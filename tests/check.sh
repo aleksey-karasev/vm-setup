@@ -32,7 +32,11 @@ done
 check ffmpeg -version
 check docker compose version
 check systemctl is-active docker
-check snap list drawio
+if [ -e /etc/arch-release ]; then
+  check pacman -Q drawio-desktop
+else
+  check snap list drawio
+fi
 
 if $texlive; then
   check pdflatex --version

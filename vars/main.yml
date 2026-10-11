@@ -21,6 +21,24 @@ snap_packages:
 
 chromium_source: "{{ 'snap' if ansible_facts['distribution'] == 'Ubuntu' else 'apt' }}"
 
+pacman_packages:
+  - ffmpeg
+  - inkscape
+  - pandoc-cli
+  - texlive-meta
+  - texlive-lang
+  - ripgrep
+  - duf
+  - fd
+  - bat
+  - drawio-desktop
+  - btop
+  - procs
+  - dust
+  - chromium
+
+pacman_packages_exclude: []
+
 uv_python_versions: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
 uv_tools:
@@ -52,4 +70,4 @@ nvidia_enabled: false
 
 nvidia_driver_package: nvidia-open
 
-nvidia_cuda_package: cuda-toolkit
+nvidia_cuda_package: "{{ 'cuda' if ansible_facts['os_family'] == 'Archlinux' else 'cuda-toolkit' }}"

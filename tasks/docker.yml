@@ -1,39 +1,51 @@
 ---
-- name: Remove distro packages that conflict with Docker Engine
-  ansible.builtin.apt:
-    name:
-      - docker.io
-      - docker-compose
-      - docker-compose-v2
-      - docker-doc
-      - podman-docker
-      - containerd
-      - runc
-    state: absent
-  become: true
+- name: Install Docker Engine from Docker's apt repository
+  when: ansible_facts['os_family'] == 'Debian'
+  block:
+    - name: Remove distro packages that conflict with Docker Engine
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose
+          - docker-compose-v2
+          - docker-doc
+          - podman-docker
+          - containerd
+          - runc
+        state: absent
+      become: true
 
-- name: Add Docker apt repository
-  ansible.builtin.deb822_repository:
-    name: docker
-    types: deb
-    uris: "https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}"
-    suites: "{{ ansible_facts['distribution_release'] }}"
-    components: stable
-    architectures: "{{ deb_arch }}"
-    signed_by: "https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}/gpg"
-  become: true
+    - name: Add Docker apt repository
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: deb
+        uris: "https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}"
+        suites: "{{ ansible_facts['distribution_release'] }}"
+        components: stable
+        architectures: "{{ deb_arch }}"
+        signed_by: "https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}/gpg"
+      become: true
+
+    - name: Install Docker Engine
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+      become: true
 
 - name: Install Docker Engine
-  ansible.builtin.apt:
-    name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-      - docker-buildx-plugin
-      - docker-compose-plugin
-    state: present
-    update_cache: true
+  ansible.builtin.command: pacman -S --needed --noconfirm docker docker-buildx docker-compose
+  environment:
+    LC_ALL: C
   become: true
+  register: docker_pacman
+  changed_when: "'there is nothing to do' not in docker_pacman.stdout"
+  when: ansible_facts['os_family'] == 'Archlinux'
 
 - name: Enable and start Docker
   ansible.builtin.systemd_service:

@@ -35,9 +35,13 @@ main() {
   fi
 
   if ! command -v ansible-pull >/dev/null || ! command -v git >/dev/null; then
-    "${sudo[@]}" apt-get update
-    "${sudo[@]}" env DEBIAN_FRONTEND=noninteractive \
-      apt-get install -y ansible-core git curl ca-certificates
+    if [ -e /etc/arch-release ]; then
+      "${sudo[@]}" pacman -Syu --needed --noconfirm ansible-core git curl ca-certificates
+    else
+      "${sudo[@]}" apt-get update
+      "${sudo[@]}" env DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y ansible-core git curl ca-certificates
+    fi
   fi
 
   ANSIBLE_HOST_PATTERN_MISMATCH=ignore \
