@@ -40,17 +40,18 @@ vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, ripgrep, duf, fd, bat | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, jq, tree, hyperfine, tmux, sqlite3, git-lfs, 7zip | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows | pacman |
 | `docker` | Docker Engine, buildx and compose plugins | Docker's apt repository (Arch: pacman) |
 | `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman) |
 | `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` | uv installer |
 | `pnpm` | pnpm, Node.js | pnpm installer |
-| `rtk`, `rclone`, `claude`, `duckdb` | rtk, rclone, Claude Code, DuckDB CLI | each tool's installer |
+| `rtk`, `rclone`, `claude`, `duckdb`, `lazydocker` | rtk, rclone, Claude Code, DuckDB CLI, lazydocker | each tool's installer |
 | `starship` | starship, its config and bash init | starship installer, `files/starship.toml` |
+| `shell` | fzf key bindings in bash, Git LFS in `~/.gitconfig` | `.bashrc` block, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
-| `nvidia` | driver, CUDA toolkit, container toolkit (opt-in) | NVIDIA's CUDA apt repository (Arch: pacman) |
+| `nvidia` | driver, CUDA toolkit, container toolkit, nvtop (opt-in) | NVIDIA's CUDA apt repository (Arch: pacman) |
 
 `fd` and `bat` are linked into `~/.local/bin`, because apt installs them as
 `fdfind` and `batcat`.
@@ -81,6 +82,7 @@ nerd_fonts: [JetBrainsMono, FiraCode]
   `cuda`, with `/opt/cuda/bin`)
 - `nvidia-container-toolkit` is registered with Docker, so
   `docker run --gpus all` works
+- `nvtop` shows GPU load
 
 `nvidia_driver_package` and `nvidia_cuda_package` select other packages, such
 as `cuda-drivers` for older GPUs or `cuda-toolkit-12-8` to pin CUDA. On Arch,

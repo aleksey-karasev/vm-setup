@@ -1,0 +1,19 @@
+---
+- name: Enable fzf key bindings in bash
+  ansible.builtin.blockinfile:
+    path: "{{ home }}/.bashrc"
+    marker: "# {mark} fzf (managed by vm-setup)"
+    block: |
+      if fzf --bash >/dev/null 2>&1; then
+        eval "$(fzf --bash)"
+      elif [ -f /usr/share/doc/fzf/examples/key-bindings.bash ]; then
+        . /usr/share/doc/fzf/examples/key-bindings.bash
+      fi
+    create: true
+    mode: "0644"
+
+- name: Set up Git LFS
+  ansible.builtin.shell: git config --global --get filter.lfs.process || git lfs install --skip-repo
+  register: git_lfs_install
+  changed_when: "'Git LFS initialized' in git_lfs_install.stdout"
+  when: "'/usr/bin/git-lfs' is exists"

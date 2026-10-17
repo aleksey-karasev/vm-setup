@@ -24,12 +24,18 @@ for tool in ruff ty pytest cookiecutter pre-commit crewai mlflow httpx2 hf fasta
             ipython kaggle marimo mkdocs whisper rip uvicorn yt-dlp markitdown; do
   check "$tool" --help
 done
+check jupyter lab --version
 
-for tool in uv pnpm node rtk rclone claude duckdb starship gh docker rg fd bat duf \
-            inkscape pandoc procs dust btop chromium; do
+for tool in uv pnpm node rtk rclone claude duckdb lazydocker starship gh docker rg fd bat duf \
+            eza fzf jq tree hyperfine sqlite3 inkscape pandoc procs dust btop chromium; do
   check "$tool" --version
 done
 check ffmpeg -version
+check dot -V
+check tmux -V
+check 7z i
+check git lfs version
+check git config --global --get filter.lfs.process
 check docker compose version
 check systemctl is-active docker
 if [ -e /etc/arch-release ]; then
@@ -45,12 +51,14 @@ fi
 if $nvidia; then
   check nvcc --version
   check nvidia-ctk --version
+  check nvtop --version
   check grep nvidia-container-runtime /etc/docker/daemon.json
 fi
 
 check diff "$(dirname "$0")/../files/starship.toml" ~/.config/starship.toml
 
 check bash -ic 'declare -F starship_precmd'
+check bash -ic 'declare -F __fzf_history__'
 echo "+ fc-list | grep 'JetBrainsMono Nerd Font'"
 fc-list | grep 'JetBrainsMono Nerd Font' >/dev/null
 echo "All checks passed."

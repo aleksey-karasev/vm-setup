@@ -113,6 +113,10 @@
       when: ansible_facts['os_family'] == 'Archlinux'
       tags: [pacman]
 
+    - name: Fzf key bindings and Git LFS
+      ansible.builtin.import_tasks: tasks/shell.yml
+      tags: [shell]
+
     - name: Docker Engine
       ansible.builtin.import_tasks: tasks/docker.yml
       tags: [docker]
@@ -163,6 +167,16 @@
         tool_bin: "{{ local_bin }}/duckdb"
         tool_install: curl -fsSL https://install.duckdb.org | sh
       tags: [duckdb]
+
+    - name: Lazydocker
+      ansible.builtin.import_tasks: tasks/tool.yml
+      vars:
+        tool_name: lazydocker
+        tool_bin: "{{ local_bin }}/lazydocker"
+        tool_install: >-
+          cd "$(mktemp -d)" &&
+          curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+      tags: [lazydocker]
 
     - name: Starship prompt
       ansible.builtin.import_tasks: tasks/starship.yml

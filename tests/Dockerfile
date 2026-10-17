@@ -21,5 +21,9 @@ RUN if [ -e /etc/arch-release ]; then \
     && useradd --create-home --non-unique --uid "$USER_ID" --groups "$admin_group" --shell /bin/bash dev \
     && echo 'dev:vm-setup' | chpasswd
 
+RUN if [ -e /etc/dpkg/dpkg.cfg.d/excludes ]; then \
+    echo 'path-include=/usr/share/doc/fzf/examples/*' >/etc/dpkg/dpkg.cfg.d/excludes-fzf; \
+    fi
+
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]

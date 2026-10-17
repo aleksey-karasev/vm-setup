@@ -47,6 +47,12 @@
         state: present
       become: true
 
+    - name: Install nvtop
+      ansible.builtin.apt:
+        name: nvtop
+        state: present
+      become: true
+
 - name: Install from the Arch repositories
   when: ansible_facts['os_family'] == 'Archlinux'
   environment:
@@ -68,6 +74,11 @@
       ansible.builtin.command: pacman -S --needed --noconfirm nvidia-container-toolkit
       register: nvidia_container_toolkit_pacman
       changed_when: "'there is nothing to do' not in nvidia_container_toolkit_pacman.stdout"
+
+    - name: Install nvtop
+      ansible.builtin.command: pacman -S --needed --noconfirm nvtop
+      register: nvtop_pacman
+      changed_when: "'there is nothing to do' not in nvtop_pacman.stdout"
 
 - name: Read the Docker daemon config
   ansible.builtin.slurp:
