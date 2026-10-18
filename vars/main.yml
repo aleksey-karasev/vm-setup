@@ -20,6 +20,12 @@ apt_packages:
   - sqlite3
   - git-lfs
   - 7zip
+  - wget
+  - rsync
+  - zip
+  - build-essential
+  - cmake
+  - pkg-config
 
 apt_packages_exclude: []
 
@@ -51,6 +57,13 @@ pacman_packages:
   - sqlite
   - git-lfs
   - 7zip
+  - wget
+  - rsync
+  - zip
+  - base-devel
+  - cmake
+  - pkgconf
+  - bash-completion
   - drawio-desktop
   - btop
   - procs
@@ -81,6 +94,7 @@ uv_tools:
   - openai-whisper
   - streamrip --python 3.13
   - uvicorn
+  - visidata
   - yt-dlp
   - markitdown
 

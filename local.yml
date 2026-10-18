@@ -113,7 +113,7 @@
       when: ansible_facts['os_family'] == 'Archlinux'
       tags: [pacman]
 
-    - name: Fzf key bindings and Git LFS
+    - name: Bash history, fzf key bindings and Git LFS
       ansible.builtin.import_tasks: tasks/shell.yml
       tags: [shell]
 
