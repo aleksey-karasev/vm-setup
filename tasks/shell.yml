@@ -1,4 +1,17 @@
 ---
+- name: Keep a long bash history shared by all terminals
+  ansible.builtin.lineinfile:
+    path: "{{ home }}/.bashrc"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    create: true
+    mode: "0644"
+  loop:
+    - { regexp: "^HISTSIZE=", line: "HISTSIZE=100000" }
+    - { regexp: "^HISTFILESIZE=", line: "HISTFILESIZE=100000" }
+    - { regexp: "^HISTCONTROL=", line: "HISTCONTROL=ignoreboth:erasedups" }
+    - { regexp: "^shopt -s histappend", line: "shopt -s histappend" }
+
 - name: Enable fzf key bindings in bash
   ansible.builtin.blockinfile:
     path: "{{ home }}/.bashrc"

@@ -1,13 +1,19 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
+command_timeout = 1000
+
 format = """
 [\ue0b6](color_orange)\
 $os\
 $username\
+$hostname\
+$sudo\
 [\ue0b0](bg:color_yellow fg:color_orange)\
 $directory\
 [\ue0b0](fg:color_yellow bg:color_aqua)\
 $git_branch\
+$git_commit\
+$git_state\
 $git_status\
 [\ue0b0](fg:color_aqua bg:color_blue)\
 $c\
@@ -26,9 +32,13 @@ $docker_context\
 $conda\
 $pixi\
 [\ue0b0](fg:color_bg3 bg:color_bg1)\
+$cmd_duration\
 $time\
 [\ue0b4 ](fg:color_bg1)\
-$line_break$character"""
+$line_break\
+$jobs\
+$status\
+$character"""
 
 palette = 'gruvbox_dark'
 
@@ -37,6 +47,7 @@ color_fg0 = '#fbf1c7'
 color_bg1 = '#3c3836'
 color_bg3 = '#665c54'
 color_blue = '#458588'
+color_bright_blue = '#83a598'
 color_aqua = '#689d6a'
 color_green = '#98971a'
 color_orange = '#d65d0e'
@@ -134,6 +145,13 @@ ssh_only = true
 ssh_symbol = "\uf233 "
 style = "bg:color_orange fg:color_fg0"
 format = '[$ssh_symbol$hostname ]($style)'
+
+[sudo]
+disabled = false
+symbol = "\uf084"
+style = "bg:color_orange fg:color_fg0"
+format = '[$symbol ]($style)'
+
 [nodejs]
 symbol = "\ue718"
 style = "bg:color_blue"
@@ -196,15 +214,19 @@ disabled = true
 [docker_context]
 symbol = "\uf308"
 style = "bg:color_bg3"
-format = '[[ $symbol( $context) ](fg:#83a598 bg:color_bg3)]($style)'
+format = '[[ $symbol( $context) ](fg:color_bright_blue bg:color_bg3)]($style)'
 
 [conda]
 style = "bg:color_bg3"
-format = '[[ $symbol( $environment) ](fg:#83a598 bg:color_bg3)]($style)'
+format = '[[ $symbol( $environment) ](fg:color_bright_blue bg:color_bg3)]($style)'
 
 [pixi]
 style = "bg:color_bg3"
 format = '[[ $symbol( $version)( $environment) ](fg:color_fg0 bg:color_bg3)]($style)'
+
+[cmd_duration]
+style = "bg:color_bg1"
+format = "[[ \uf252 $duration ](fg:color_fg0 bg:color_bg1)]($style)"
 
 [time]
 disabled = false

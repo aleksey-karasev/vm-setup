@@ -40,16 +40,16 @@ vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, jq, tree, hyperfine, tmux, sqlite3, git-lfs, 7zip | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, jq, tree, hyperfine, tmux, sqlite3, git-lfs, 7zip, wget, rsync, zip, build-essential, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
-| `pacman` | on Arch, everything in the `apt` and `snap` rows | pacman |
+| `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `docker` | Docker Engine, buildx and compose plugins | Docker's apt repository (Arch: pacman) |
 | `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman) |
 | `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` | uv installer |
 | `pnpm` | pnpm, Node.js | pnpm installer |
 | `rtk`, `rclone`, `claude`, `duckdb`, `lazydocker` | rtk, rclone, Claude Code, DuckDB CLI, lazydocker | each tool's installer |
 | `starship` | starship, its config and bash init | starship installer, `files/starship.toml` |
-| `shell` | fzf key bindings in bash, Git LFS in `~/.gitconfig` | `.bashrc` block, `git lfs install` |
+| `shell` | 100k-line bash history shared by all terminals, fzf key bindings in bash, Git LFS in `~/.gitconfig` | `.bashrc` lines and blocks, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
 | `nvidia` | driver, CUDA toolkit, container toolkit, nvtop (opt-in) | NVIDIA's CUDA apt repository (Arch: pacman) |
 

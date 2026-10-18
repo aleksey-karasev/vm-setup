@@ -27,19 +27,22 @@ done
 check jupyter lab --version
 
 for tool in uv pnpm node rtk rclone claude duckdb lazydocker starship gh docker rg fd bat duf \
-            eza fzf jq tree hyperfine sqlite3 inkscape pandoc procs dust btop chromium; do
+            eza fzf jq tree hyperfine sqlite3 wget rsync gcc make cmake pkg-config vd \
+            inkscape pandoc procs dust btop chromium; do
   check "$tool" --version
 done
 check ffmpeg -version
 check dot -V
 check tmux -V
 check 7z i
+check zip -v
 check git lfs version
 check git config --global --get filter.lfs.process
 check docker compose version
 check systemctl is-active docker
 if [ -e /etc/arch-release ]; then
   check pacman -Q drawio-desktop
+  check test -f /usr/share/bash-completion/bash_completion
 else
   check snap list drawio
 fi
@@ -58,6 +61,15 @@ fi
 check diff "$(dirname "$0")/../files/starship.toml" ~/.config/starship.toml
 
 check bash -ic 'declare -F starship_precmd'
+echo "+ starship prompt (no warnings)"
+starship_warnings="$(cd && starship prompt 2>&1 >/dev/null)"
+[ -z "$starship_warnings" ] || { echo "$starship_warnings"; exit 1; }
+check bash -ic '[ "$HISTSIZE" = 100000 ] && shopt -q histappend'
+echo "+ bash keeps a history file longer than 2000 lines"
+history_file="$(mktemp)"
+seq 3000 >"$history_file"
+HISTFILE="$history_file" bash -ic true 2>/dev/null
+[ "$(wc -l <"$history_file")" = 3000 ]
 check bash -ic 'declare -F __fzf_history__'
 echo "+ fc-list | grep 'JetBrainsMono Nerd Font'"
 fc-list | grep 'JetBrainsMono Nerd Font' >/dev/null

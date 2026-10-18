@@ -18,7 +18,9 @@ RUN if [ -e /etc/arch-release ]; then \
     && rm -rf /var/lib/apt/lists/* /usr/sbin/policy-rc.d \
     && admin_group=sudo; \
     fi \
-    && useradd --create-home --non-unique --uid "$USER_ID" --groups "$admin_group" --shell /bin/bash dev \
+    && existing_user="$(getent passwd "$USER_ID" | cut -d: -f1)" \
+    && { [ -z "$existing_user" ] || userdel --remove "$existing_user"; } \
+    && useradd --create-home --uid "$USER_ID" --groups "$admin_group" --shell /bin/bash dev \
     && echo 'dev:vm-setup' | chpasswd
 
 RUN if [ -e /etc/dpkg/dpkg.cfg.d/excludes ]; then \
