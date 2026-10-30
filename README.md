@@ -31,7 +31,7 @@ Pulls the repo and applies it again, bringing system packages, snaps and every
 tool to the newest version. Arguments go to `ansible-pull`:
 
 ```bash
-vm-setup --tags uv,claude      # only some components
+vm-setup --tags uv,duckdb      # only some components
 vm-setup --skip-tags apt,snap  # pacman on Arch
 vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 ```
@@ -47,7 +47,7 @@ vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 | `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman) |
 | `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` | uv installer |
 | `pnpm` | pnpm, Node.js | pnpm installer |
-| `rtk`, `rclone`, `claude`, `duckdb`, `lazydocker` | rtk, rclone, Claude Code, DuckDB CLI, lazydocker | each tool's installer |
+| `rtk`, `rclone`, `duckdb`, `lazydocker` | rtk, rclone, DuckDB CLI, lazydocker | each tool's installer |
 | `starship` | starship, its config and bash init | starship installer, `files/starship.toml` |
 | `shell` | 100k-line bash history shared by all terminals, fzf key bindings in bash, Git LFS in `~/.gitconfig` | `.bashrc` lines and blocks, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |

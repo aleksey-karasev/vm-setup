@@ -26,7 +26,7 @@ for tool in ruff ty pytest cookiecutter pre-commit crewai mlflow httpx2 hf fasta
 done
 check jupyter lab --version
 
-for tool in uv pnpm node rtk rclone claude duckdb lazydocker starship gh docker rg fd bat duf \
+for tool in uv pnpm node rtk rclone duckdb lazydocker starship gh docker rg fd bat duf \
             eza fzf jq tree hyperfine sqlite3 wget rsync gcc make cmake pkg-config vd \
             inkscape pandoc procs dust btop chromium; do
   check "$tool" --version
