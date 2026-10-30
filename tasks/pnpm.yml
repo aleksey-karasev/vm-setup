@@ -15,3 +15,9 @@
     tool_name: node
     tool_bin: "{{ pnpm_home }}/bin/node"
     tool_install: "{{ pnpm_home }}/bin/pnpm add -g node"
+
+- name: Upgrade global pnpm packages
+  ansible.builtin.command: "{{ pnpm_home }}/bin/pnpm update -g"
+  register: pnpm_update
+  changed_when: false
+  when: upgrade | bool
