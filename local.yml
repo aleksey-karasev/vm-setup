@@ -151,15 +151,6 @@
         tool_ok_rc: [0, 3]
       tags: [rclone]
 
-    - name: Claude Code
-      ansible.builtin.import_tasks: tasks/tool.yml
-      vars:
-        tool_name: Claude Code
-        tool_bin: "{{ local_bin }}/claude"
-        tool_install: curl -fsSL https://claude.ai/install.sh | bash
-        tool_update: "{{ local_bin }}/claude update"
-      tags: [claude]
-
     - name: DuckDB
       ansible.builtin.import_tasks: tasks/tool.yml
       vars:
