@@ -1,0 +1,71 @@
+---
+- name: Upgrade global pnpm packages
+  when:
+    - upgrade | bool
+    - not ansible_check_mode
+  block:
+    - name: List global pnpm package names before update
+      ansible.builtin.command:
+        argv: ["{{ pnpm_home }}/bin/pnpm", list, --global, --json, --depth, "0"]
+      register: pnpm_global_roots_before
+      changed_when: false
+
+    - name: Read each global pnpm dependency tree before update
+      ansible.builtin.command:
+        argv:
+          [
+            "{{ pnpm_home }}/bin/pnpm",
+            list,
+            --global,
+            --json,
+            --depth,
+            Infinity,
+            "{{ item }}",
+          ]
+      loop: >-
+        {{ pnpm_global_roots_before.stdout | from_json |
+           map(attribute='dependencies', default={}) | map('dict2items') | flatten |
+           map(attribute='key') | unique | sort }}
+      register: pnpm_globals_before
+      changed_when: false
+
+    - name: Run pnpm -g update
+      ansible.builtin.command:
+        argv: ["{{ pnpm_home }}/bin/pnpm", -g, update]
+      changed_when: false
+
+    - name: List global pnpm package names after update
+      ansible.builtin.command:
+        argv: ["{{ pnpm_home }}/bin/pnpm", list, --global, --json, --depth, "0"]
+      register: pnpm_global_roots_after
+      changed_when: false
+
+    - name: Read each global pnpm dependency tree after update
+      ansible.builtin.command:
+        argv:
+          [
+            "{{ pnpm_home }}/bin/pnpm",
+            list,
+            --global,
+            --json,
+            --depth,
+            Infinity,
+            "{{ item }}",
+          ]
+      loop: >-
+        {{ pnpm_global_roots_after.stdout | from_json |
+           map(attribute='dependencies', default={}) | map('dict2items') | flatten |
+           map(attribute='key') | unique | sort }}
+      register: pnpm_globals_after
+      changed_when: false
+
+    - name: Record global pnpm dependency changes
+      ansible.builtin.debug:
+        msg: Global pnpm package update completed
+      changed_when: >-
+        (pnpm_globals_before.results | map(attribute='stdout') | map('from_json') |
+         flatten | map(attribute='dependencies', default={}) |
+         map('to_json', sort_keys=true) | sort | list) !=
+        (pnpm_globals_after.results | map(attribute='stdout') | map('from_json') |
+         flatten | map(attribute='dependencies', default={}) |
+         map('to_json', sort_keys=true) | sort | list)

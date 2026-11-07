@@ -45,7 +45,7 @@ main() {
   fi
 
   ANSIBLE_HOST_PATTERN_MISMATCH=ignore \
-    ansible-pull --url "$REPO" --checkout "$REF" --directory "$CHECKOUT" "${pull_args[@]}" local.yml
+    ansible-pull --full --url "$REPO" --checkout "$REF" --directory "$CHECKOUT" "${pull_args[@]}" local.yml
 
   echo "Done. Log out and back in to pick up PATH and group changes."
 }

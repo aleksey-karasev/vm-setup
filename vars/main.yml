@@ -88,7 +88,7 @@ uv_tools:
   - typer
   - ipython
   - jupyterlab --with-executables-from jupyter-core
-  - kaggle
+  - kaggle --with six
   - marimo
   - mkdocs
   - openai-whisper

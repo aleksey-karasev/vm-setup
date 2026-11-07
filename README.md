@@ -36,6 +36,15 @@ vm-setup --skip-tags apt,snap  # pacman on Arch
 vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 ```
 
+Global npm packages are updated with `pnpm -g update` after pnpm and Node.js
+are available. This follows each package's declared version range (it does not
+force major upgrades with `--latest`) and is skipped with `upgrade=false`.
+The task enumerates global package names at depth 0, then compares each package's
+JSON dependency tree before and after the update, so an unchanged second run
+reports `changed=0`. Deep listing always selects one package because pnpm does
+not support a merged transitive tree across isolated global installations. Nonzero update/list exit codes still
+fail the play; failures are not treated as successful no-ops.
+
 ## What is installed
 
 | Tag | Installs | Source |
@@ -93,6 +102,11 @@ To add a tool, put it in the matching list in `vars/main.yml`. For a
 `curl | sh` installer, import `tasks/tool.yml` in `local.yml`, as is done for
 rtk.
 
+The Starship powerline prompt uses the official Dracula palette, with pink
+identity and Git accents, a purple directory segment, cyan language segments,
+and dark foregrounds on bright backgrounds. It suits the Dracula VS Code theme;
+terminal and editor theme settings are managed separately.
+
 ## Supported systems
 
 Ubuntu 24.04, Ubuntu 26.04, Debian 13 and Arch Linux, on a VM or under WSL2
@@ -100,6 +114,10 @@ with `systemd=true` in `/etc/wsl.conf` (snaps need systemd).
 
 On Ubuntu 26.04 root tasks run through `sudo.ws`, because Ansible cannot read
 the password prompt of the default sudo-rs.
+
+Bootstrap uses full Git checkouts to avoid an upstream Ansible shallow-fetch
+regression on repeated detached-commit runs. Kaggle includes `six` explicitly
+in its isolated uv environment because its CLI imports it.
 
 ## Development
 
@@ -121,3 +139,28 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 Not covered: the driver on 26.04, Debian and Arch, since containers share the
 runner's kernel, and anything that needs a GPU. A manual run accepts extra
 `bootstrap.sh` arguments, such as `--tags snap`.
+
+### Focused update tests
+
+With Python 3.11+, `ansible-playbook`, `pnpm` and `starship` on `PATH`, run:
+
+```bash
+ansible-playbook --syntax-check local.yml
+python3 tests/test_updates.py
+```
+
+These tests use temporary global package directories and a local npm registry.
+They check an empty package set, single and multiple isolated global installs
+(including a scoped package), direct and transitive version updates, unchanged
+reruns, `upgrade=false`, check mode, and failed enumeration/deep-list/update
+commands before or after an update. Starship is rendered
+in a Git/Node project with successful and failed command statuses; warnings and
+missing palette references fail the test. CI runs these tests with pnpm 11.25.0
+and the latest installer version, alongside the existing full-machine tests.
+
+References: [pnpm global packages](https://pnpm.io/global-packages),
+[pnpm update](https://pnpm.io/cli/update),
+[pnpm list](https://pnpm.io/cli/list),
+[Ansible change/failure handling](https://docs.ansible.com/projects/ansible/latest/playbook_guide/playbooks_error_handling.html),
+[Starship configuration](https://starship.rs/config/), and the
+[Dracula palette](https://github.com/dracula/dracula-theme#color-palette-oss).
