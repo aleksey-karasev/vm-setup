@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Focused integration tests; requires ansible-playbook, pnpm and starship on PATH."""
 
 import hashlib
@@ -16,6 +17,7 @@ import tomllib
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -122,60 +124,86 @@ class GlobalUpdates(unittest.TestCase):
         executable.chmod(0o755)
         self.assertIn("list-failed", self.playbook(success=False))
 
-    def test_real_package_update_and_repeat(self):
-        versions = {}
-        for version in ("1.0.0", "1.0.1"):
+    def test_deep_list_errors_are_not_ignored(self):
+        executable = self.home / "bin/pnpm"
+        executable.unlink()
+        executable.write_text(
+            '#!/bin/sh\ncase " $* " in *" Infinity "*) '
+            "echo tree-list-failed >&2; exit 2;; esac\n"
+            + "printf '%s\\n' "
+            + shlex.quote(
+                json.dumps([{"dependencies": {"fixture": {"version": "1.0.0"}}}])
+            )
+            + "\n"
+        )
+        executable.chmod(0o755)
+        self.assertIn("tree-list-failed", self.playbook(success=False))
+
+    def test_after_update_list_errors_are_not_ignored(self):
+        executable = self.home / "bin/pnpm"
+        marker = shlex.quote(str(self.base / "updated"))
+        executable.unlink()
+        executable.write_text(
+            '#!/bin/sh\nif [ "$1" = "-g" ]; then touch ' + marker + "; exit 0; fi\n"
+            "if [ -e " + marker + " ]; then echo after-list-failed >&2; exit 2; fi\n"
+            "printf '[]\\n'\n"
+        )
+        executable.chmod(0o755)
+        self.assertIn("after-list-failed", self.playbook(success=False))
+
+    def registry(self, manifests, available):
+        tarballs = {}
+        metadata = {}
+        for index, manifest in enumerate(manifests):
             data = io.BytesIO()
             with tarfile.open(fileobj=data, mode="w:gz") as archive:
-                manifest = json.dumps({
-                    "name": "vm-setup-fixture",
-                    "version": version,
-                    "bin": {"vm-setup-fixture": "cli.js"},
-                }).encode()
-                for name, contents in [
-                    ("package.json", manifest),
-                    (
-                        "cli.js",
-                        f'#!/usr/bin/env node\nconsole.log("{version}")\n'.encode(),
-                    ),
-                ]:
+                contents = {
+                    "package.json": json.dumps(manifest).encode(),
+                    "cli.js": f'#!/usr/bin/env node\nconsole.log("{manifest["version"]}")\n'.encode(),
+                }
+                for name, payload in contents.items():
                     item = tarfile.TarInfo("package/" + name)
-                    item.size = len(contents)
+                    item.size = len(payload)
                     item.mode = 0o755
-                    archive.addfile(item, io.BytesIO(contents))
-            versions[version] = data.getvalue()
-        available = ["1.0.0"]
+                    archive.addfile(item, io.BytesIO(payload))
+            path = f"/tarballs/{index}.tgz"
+            tarballs[path] = data.getvalue()
+            metadata[(manifest["name"], manifest["version"])] = (manifest, path)
 
         class Registry(BaseHTTPRequestHandler):
             def log_message(self, *args):
                 pass
 
             def do_GET(self):
-                if self.path.endswith(".tgz"):
-                    payload = versions[self.path.rsplit("/", 1)[-1][:-4]]
+                path = unquote(self.path).split("?", 1)[0]
+                if path in tarballs:
+                    payload = tarballs[path]
                 else:
+                    name = path.lstrip("/")
+                    if name not in available:
+                        self.send_error(404)
+                        return
+                    versions = {}
+                    for version in available[name]:
+                        manifest, tarball = metadata[(name, version)]
+                        versions[version] = dict(
+                            manifest,
+                            dist={
+                                "tarball": f"http://127.0.0.1:{self.server.server_port}{tarball}",
+                                "shasum": hashlib.sha1(tarballs[tarball]).hexdigest(),
+                            },
+                        )
                     payload = json.dumps({
-                        "name": "vm-setup-fixture",
-                        "dist-tags": {"latest": available[-1]},
-                        "versions": {
-                            v: {
-                                "name": "vm-setup-fixture",
-                                "version": v,
-                                "bin": {"vm-setup-fixture": "cli.js"},
-                                "dist": {
-                                    "tarball": f"http://127.0.0.1:{self.server.server_port}/{v}.tgz",
-                                    "shasum": hashlib.sha1(versions[v]).hexdigest(),
-                                },
-                            }
-                            for v in available
-                        },
+                        "name": name,
+                        "dist-tags": {"latest": available[name][-1]},
+                        "versions": versions,
                     }).encode()
                 self.send_response(200)
                 self.send_header(
                     "Content-Type",
-                    "application/json"
-                    if not self.path.endswith(".tgz")
-                    else "application/octet-stream",
+                    "application/octet-stream"
+                    if path in tarballs
+                    else "application/json",
                 )
                 self.send_header("Content-Length", str(len(payload)))
                 self.send_header(
@@ -186,29 +214,81 @@ class GlobalUpdates(unittest.TestCase):
                 self.wfile.write(payload)
 
         server = ThreadingHTTPServer(("127.0.0.1", 0), Registry)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         self.env["npm_config_registry"] = f"http://127.0.0.1:{server.server_port}"
         self.env["PNPM_CONFIG_REGISTRY"] = self.env["npm_config_registry"]
         self.env["PNPM_CONFIG_MINIMUM_RELEASE_AGE"] = "0"
         self.env["npm_config_minimum_release_age"] = "0"
-        result = run(
+
+    def install(self, package):
+        result = run(str(self.home / "bin/pnpm"), "add", "-g", package, env=self.env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def exercise_update(self, multiple=False, transitive=False):
+        fixture = "vm-setup-fixture"
+        sentinel = "@vm-setup/sentinel"
+        child = "vm-setup-child"
+        manifests = [
+            {
+                "name": fixture,
+                "version": version,
+                "bin": {fixture: "cli.js"},
+                **({"dependencies": {child: "^1.0.0"}} if transitive else {}),
+            }
+            for version in ("1.0.0", "1.0.1")
+        ] + [{"name": sentinel, "version": "1.0.0", "bin": {"sentinel": "cli.js"}}]
+        manifests += [
+            {"name": child, "version": version} for version in ("1.0.0", "1.0.1")
+        ]
+        available = {name: ["1.0.0"] for name in (fixture, sentinel, child)}
+        self.registry(manifests, available)
+        self.install(fixture + "@^1.0.0")
+        if multiple:
+            self.install(sentinel + "@1.0.0")
+            roots = run(
+                str(self.home / "bin/pnpm"), "list", "-g", "--json", env=self.env
+            )
+            self.assertEqual(roots.returncode, 0, roots.stderr)
+            names = {
+                name
+                for group in json.loads(roots.stdout)
+                for name in group.get("dependencies", {})
+            }
+            self.assertTrue({fixture, sentinel}.issubset(names))
+        self.playbook()
+        available[child if transitive else fixture].append("1.0.1")
+        self.playbook("-e", "upgrade=false")
+        self.assertEqual(run(fixture, env=self.env).stdout.strip(), "1.0.0")
+        self.playbook(changed=1)
+        expected = "1.0.0" if transitive else "1.0.1"
+        self.assertEqual(run(fixture, env=self.env).stdout.strip(), expected)
+        tree = run(
             str(self.home / "bin/pnpm"),
-            "add",
+            "list",
             "-g",
-            "vm-setup-fixture@^1.0.0",
+            fixture,
+            "--json",
+            "--depth",
+            "Infinity",
             env=self.env,
         )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(tree.returncode, 0, tree.stderr)
+        if transitive:
+            self.assertRegex(tree.stdout, r'"vm-setup-child"[\s\S]*?"version": "1.0.1"')
+        if multiple:
+            self.assertEqual(run("sentinel", env=self.env).stdout.strip(), "1.0.0")
         self.playbook()
-        available.append("1.0.1")
-        self.playbook("-e", "upgrade=false")
-        self.assertEqual(run("vm-setup-fixture", env=self.env).stdout.strip(), "1.0.0")
-        self.playbook(changed=1)
-        self.assertEqual(run("vm-setup-fixture", env=self.env).stdout.strip(), "1.0.1")
-        self.playbook()
+
+    def test_real_package_update_and_repeat(self):
+        self.exercise_update()
+
+    def test_multiple_isolated_global_packages(self):
+        self.exercise_update(multiple=True)
+
+    def test_transitive_update_with_multiple_global_packages(self):
+        self.exercise_update(multiple=True, transitive=True)
 
 
 class PromptStyle(unittest.TestCase):

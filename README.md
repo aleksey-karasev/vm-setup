@@ -39,8 +39,10 @@ vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 Global npm packages are updated with `pnpm -g update` after pnpm and Node.js
 are available. This follows each package's declared version range (it does not
 force major upgrades with `--latest`) and is skipped with `upgrade=false`.
-The task compares JSON dependency trees before and after the update, so an
-unchanged second run reports `changed=0`. Nonzero update/list exit codes still
+The task enumerates global package names at depth 0, then compares each package's
+JSON dependency tree before and after the update, so an unchanged second run
+reports `changed=0`. Deep listing always selects one package because pnpm does
+not support a merged transitive tree across isolated global installations. Nonzero update/list exit codes still
 fail the play; failures are not treated as successful no-ops.
 
 ## What is installed
@@ -144,13 +146,16 @@ python3 tests/test_updates.py
 ```
 
 These tests use temporary global package directories and a local npm registry.
-They check an empty package set, a real version update, unchanged reruns,
-`upgrade=false`, check mode, and failed update/list commands. Starship is rendered
+They check an empty package set, single and multiple isolated global installs
+(including a scoped package), direct and transitive version updates, unchanged
+reruns, `upgrade=false`, check mode, and failed enumeration/deep-list/update
+commands before or after an update. Starship is rendered
 in a Git/Node project with successful and failed command statuses; warnings and
 missing palette references fail the test. CI runs these tests with pnpm 11.25.0
 and the latest installer version, alongside the existing full-machine tests.
 
-References: [pnpm update](https://pnpm.io/cli/update),
+References: [pnpm global packages](https://pnpm.io/global-packages),
+[pnpm update](https://pnpm.io/cli/update),
 [pnpm list](https://pnpm.io/cli/list),
 [Ansible change/failure handling](https://docs.ansible.com/projects/ansible/latest/playbook_guide/playbooks_error_handling.html),
 [Starship configuration](https://starship.rs/config/), and the
