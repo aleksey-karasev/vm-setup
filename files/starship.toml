@@ -3,19 +3,19 @@
 command_timeout = 1000
 
 format = """
-[\ue0b6](color_orange)\
+[\ue0b6](color_pink)\
 $os\
 $username\
 $hostname\
 $sudo\
-[\ue0b0](bg:color_yellow fg:color_orange)\
+[\ue0b0](bg:color_purple fg:color_pink)\
 $directory\
-[\ue0b0](fg:color_yellow bg:color_aqua)\
+[\ue0b0](fg:color_purple bg:color_bg3)\
 $git_branch\
 $git_commit\
 $git_state\
 $git_status\
-[\ue0b0](fg:color_aqua bg:color_blue)\
+[\ue0b0](fg:color_bg3 bg:color_cyan)\
 $c\
 $cpp\
 $rust\
@@ -27,7 +27,7 @@ $java\
 $kotlin\
 $haskell\
 $python\
-[\ue0b0](fg:color_blue bg:color_bg3)\
+[\ue0b0](fg:color_cyan bg:color_bg3)\
 $docker_context\
 $conda\
 $pixi\
@@ -40,24 +40,24 @@ $jobs\
 $status\
 $character"""
 
-palette = 'gruvbox_dark'
+palette = 'dracula'
 
-[palettes.gruvbox_dark]
-color_fg0 = '#fbf1c7'
-color_bg1 = '#3c3836'
-color_bg3 = '#665c54'
-color_blue = '#458588'
-color_bright_blue = '#83a598'
-color_aqua = '#689d6a'
-color_green = '#98971a'
-color_orange = '#d65d0e'
-color_purple = '#b16286'
-color_red = '#cc241d'
-color_yellow = '#d79921'
+# Official Dracula colors; dark foregrounds keep bright segments readable.
+[palettes.dracula]
+color_fg0 = '#f8f8f2'
+color_bg0 = '#282a36'
+color_bg1 = '#282a36'
+color_bg3 = '#44475a'
+color_pink = '#ff79c6'
+color_purple = '#bd93f9'
+color_cyan = '#8be9fd'
+color_green = '#50fa7b'
+color_red = '#ff5555'
+color_yellow = '#f1fa8c'
 
 [os]
 disabled = false
-style = "bg:color_orange fg:color_fg0"
+style = "bg:color_pink fg:color_bg0"
 
 [os.symbols]
 Windows = "\U000f0372"
@@ -85,15 +85,15 @@ Pop = "\uf32a"
 
 [username]
 show_always = true
-style_user = "bg:color_orange fg:color_fg0"
-style_root = "bg:color_red fg:color_fg0 bold"
+style_user = "bg:color_pink fg:color_bg0"
+style_root = "bg:color_red fg:color_bg0 bold"
 format = '[ $user ]($style)'
 
 [directory]
-style = "fg:color_fg0 bg:color_yellow"
+style = "fg:color_bg0 bg:color_purple"
 format = "[ $path ]($style)[$read_only]($read_only_style)"
 read_only = "\uf023 "                                      # lock icon
-read_only_style = "fg:color_red bg:color_yellow"
+read_only_style = "fg:color_red bg:color_purple"
 truncation_length = 3
 truncation_symbol = "\u2026/"
 
@@ -117,12 +117,12 @@ format = '[$symbol$number]($style) '
 
 [git_branch]
 symbol = "\uf418"
-style = "bg:color_aqua"
-format = '[[ $symbol $branch ](fg:color_fg0 bg:color_aqua)]($style)'
+style = "bg:color_bg3"
+format = '[[ $symbol $branch ](fg:color_pink bg:color_bg3)]($style)'
 
 [git_status]
-style = "bg:color_aqua"
-format = '[[($all_status$ahead_behind )](fg:color_fg0 bg:color_aqua)]($style)'
+style = "bg:color_bg3"
+format = '[[($all_status$ahead_behind )](fg:color_pink bg:color_bg3)]($style)'
 ahead = "\u21e1${count}"
 behind = "\u21e3${count}"
 diverged = "\u21d5\u21e1${ahead_count}\u21e3${behind_count}"
@@ -133,79 +133,79 @@ stashed = "\u2261${count}"
 conflicted = '=${count}'
 
 [git_commit]
-style = "bg:color_aqua"
-format = '[[$hash$tag ](fg:color_fg0 bg:color_aqua)]($style)'
+style = "bg:color_bg3"
+format = '[[$hash$tag ](fg:color_pink bg:color_bg3)]($style)'
 
 [git_state]
-style = "bg:color_aqua"
-format = '[[$state( $progress_current/$progress_total) ](fg:color_fg0 bg:color_aqua bold)]($style)'
+style = "bg:color_bg3"
+format = '[[$state( $progress_current/$progress_total) ](fg:color_pink bg:color_bg3 bold)]($style)'
 
 [hostname]
 ssh_only = true
 ssh_symbol = "\uf233 "
-style = "bg:color_orange fg:color_fg0"
+style = "bg:color_pink fg:color_bg0"
 format = '[$ssh_symbol$hostname ]($style)'
 
 [sudo]
 disabled = false
 symbol = "\uf084"
-style = "bg:color_orange fg:color_fg0"
+style = "bg:color_pink fg:color_bg0"
 format = '[$symbol ]($style)'
 
 [nodejs]
 symbol = "\ue718"
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [bun]
 symbol = "\ue76f"
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [c]
 symbol = "\ue61e "
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [cpp]
 symbol = "\ue61d "
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [rust]
 symbol = "\ue7a8"
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [golang]
 symbol = "\ue627"
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [php]
 symbol = "\ue608"
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [java]
 symbol = "\ue256"
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [kotlin]
 symbol = "\ue634"
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [haskell]
 symbol = "\ue61f"
-style = "bg:color_blue"
-format = '[[ $symbol( $version) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version) ](fg:color_bg0 bg:color_cyan)]($style)'
 
 [python]
 symbol = "\ue606"
-style = "bg:color_blue"
-format = '[[ $symbol( $version)( \($virtualenv\)) ](fg:color_fg0 bg:color_blue)]($style)'
+style = "bg:color_cyan"
+format = '[[ $symbol( $version)( \($virtualenv\)) ](fg:color_bg0 bg:color_cyan)]($style)'
 python_binary = [".venv/bin/python", "python", "python3"]
 
 [package]
@@ -214,11 +214,11 @@ disabled = true
 [docker_context]
 symbol = "\uf308"
 style = "bg:color_bg3"
-format = '[[ $symbol( $context) ](fg:color_bright_blue bg:color_bg3)]($style)'
+format = '[[ $symbol( $context) ](fg:color_cyan bg:color_bg3)]($style)'
 
 [conda]
 style = "bg:color_bg3"
-format = '[[ $symbol( $environment) ](fg:color_bright_blue bg:color_bg3)]($style)'
+format = '[[ $symbol( $environment) ](fg:color_cyan bg:color_bg3)]($style)'
 
 [pixi]
 style = "bg:color_bg3"
@@ -239,7 +239,7 @@ disabled = false
 
 [character]
 disabled = false
-success_symbol = "[\uf432](bold fg:color_green)"
+success_symbol = "[\uf432](bold fg:color_pink)"
 error_symbol = "[\uf432](bold fg:color_red)"
 vimcmd_symbol = "[\uf434](bold fg:color_green)"
 vimcmd_replace_one_symbol = "[\uf434](bold fg:color_purple)"
