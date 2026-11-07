@@ -15,3 +15,6 @@
     tool_name: node
     tool_bin: "{{ pnpm_home }}/bin/node"
     tool_install: "{{ pnpm_home }}/bin/pnpm add -g node"
+
+- name: Update globally installed pnpm packages
+  ansible.builtin.import_tasks: pnpm_globals.yml
