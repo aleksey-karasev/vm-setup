@@ -49,7 +49,7 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, jq, tree, hyperfine, tmux, sqlite3, git-lfs, 7zip, wget, rsync, zip, build-essential, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, jq, tree, hyperfine, tmux, sqlite3, psql, git-lfs, 7zip, wget, rsync, zip, build-essential, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `docker` | Docker Engine, buildx and compose plugins | Docker's apt repository (Arch: pacman) |
@@ -64,6 +64,9 @@ fail the play; failures are not treated as successful no-ops.
 
 `fd` and `bat` are linked into `~/.local/bin`, because apt installs them as
 `fdfind` and `batcat`.
+
+`psql` is installed from `postgresql-client` on Ubuntu/Debian and
+`postgresql-libs` on Arch. These packages install the PostgreSQL client tools.
 
 On Arch, TeX Live is `texlive-meta` and `texlive-lang`, without the 3 GB of
 `texlive-doc`. Arch does not support partial upgrades, so the system is
