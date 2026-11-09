@@ -27,7 +27,7 @@ done
 check jupyter lab --version
 
 for tool in uv pnpm node rtk rclone duckdb lazydocker starship gh docker rg fd bat duf \
-            eza fzf jq tree hyperfine sqlite3 wget rsync gcc make cmake pkg-config \
+            eza fzf jq tree hyperfine sqlite3 psql wget rsync gcc make cmake pkg-config \
             inkscape pandoc procs dust btop chromium; do
   check "$tool" --version
 done
