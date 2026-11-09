@@ -116,8 +116,7 @@ On Ubuntu 26.04 root tasks run through `sudo.ws`, because Ansible cannot read
 the password prompt of the default sudo-rs.
 
 Bootstrap uses full Git checkouts to avoid an upstream Ansible shallow-fetch
-regression on repeated detached-commit runs. Kaggle includes `six` explicitly
-in its isolated uv environment because its CLI imports it.
+regression on repeated detached-commit runs.
 
 ## Development
 

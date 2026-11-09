@@ -20,14 +20,14 @@ for py in 3.9 3.10 3.11 3.12 3.13 3.14; do
   check "python$py" --version
 done
 
-for tool in ruff ty pytest cookiecutter pre-commit crewai mlflow httpx2 hf fastapi typer \
-            ipython kaggle marimo mkdocs whisper rip uvicorn yt-dlp markitdown; do
+for tool in ruff ty pytest cookiecutter pre-commit crewai llmfit mlflow httpx2 hf fastapi typer \
+            ipython marimo mkdocs whisper polars rip taplo uvicorn yt-dlp markitdown; do
   check "$tool" --help
 done
 check jupyter lab --version
 
 for tool in uv pnpm node rtk rclone duckdb lazydocker starship gh docker rg fd bat duf \
-            eza fzf jq tree hyperfine sqlite3 wget rsync gcc make cmake pkg-config vd \
+            eza fzf jq tree hyperfine sqlite3 wget rsync gcc make cmake pkg-config \
             inkscape pandoc procs dust btop chromium; do
   check "$tool" --version
 done
