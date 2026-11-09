@@ -81,6 +81,7 @@ uv_tools:
   - cookiecutter
   - pre-commit
   - crewai
+  - llmfit
   - mlflow
   - httpx2[cli]
   - huggingface-hub
@@ -88,13 +89,13 @@ uv_tools:
   - typer
   - ipython
   - jupyterlab --with-executables-from jupyter-core
-  - kaggle --with six
   - marimo
   - mkdocs
   - openai-whisper
+  - polars-cli
   - streamrip --python 3.13
+  - taplo
   - uvicorn
-  - visidata
   - yt-dlp
   - markitdown
 
