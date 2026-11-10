@@ -30,13 +30,9 @@ apt_packages:
 
 apt_packages_exclude: []
 
-snap_packages:
-  - drawio
-  - btop
-  - procs
-  - dust
+snap_packages: "{{ ['drawio'] if ansible_facts['distribution'] == 'Fedora' else ['drawio', 'btop', 'procs', 'dust'] }}"
 
-chromium_source: "{{ 'snap' if ansible_facts['distribution'] == 'Ubuntu' else 'apt' }}"
+chromium_source: "{{ 'snap' if ansible_facts['distribution'] == 'Ubuntu' else 'dnf' if ansible_facts['distribution'] == 'Fedora' else 'apt' }}"
 
 pacman_packages:
   - ffmpeg
@@ -73,6 +69,42 @@ pacman_packages:
   - chromium
 
 pacman_packages_exclude: []
+
+dnf_packages:
+  - ffmpeg-free
+  - inkscape
+  - pandoc
+  - texlive-scheme-full
+  - graphviz
+  - ripgrep
+  - duf
+  - fd-find
+  - bat
+  - eza
+  - fzf
+  - jq
+  - tree
+  - hyperfine
+  - tmux
+  - sqlite
+  - postgresql
+  - git-lfs
+  - 7zip
+  - wget
+  - rsync
+  - zip
+  - gcc
+  - gcc-c++
+  - make
+  - cmake
+  - pkgconf-pkg-config
+  - bash-completion
+  - btop
+  - procs
+  - du-dust
+  - chromium
+
+dnf_packages_exclude: []
 
 uv_python_versions: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 

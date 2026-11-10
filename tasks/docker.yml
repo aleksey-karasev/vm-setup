@@ -47,6 +47,57 @@
   changed_when: "'there is nothing to do' not in docker_pacman.stdout"
   when: ansible_facts['os_family'] == 'Archlinux'
 
+- name: Install Docker Engine from Docker's Fedora repository
+  when: ansible_facts['distribution'] == 'Fedora'
+  become: true
+  vars:
+    docker_conflicting_packages:
+      - docker
+      - docker-client
+      - docker-client-latest
+      - docker-common
+      - docker-latest
+      - docker-latest-logrotate
+      - docker-logrotate
+      - docker-selinux
+      - docker-engine-selinux
+      - docker-engine
+      - podman-docker
+      - moby-engine
+    docker_packages_to_remove: "{{ docker_conflicting_packages | intersect(docker_rpm_packages.stdout_lines) }}"
+  block:
+    # DNF also matches virtual provides: docker-selinux can select container-selinux,
+    # which Docker CE itself requires. Remove only installed package names.
+    - name: List installed RPM package names
+      ansible.builtin.command: rpm -qa --queryformat '%{NAME}\n'
+      register: docker_rpm_packages
+      changed_when: false
+      check_mode: false
+
+    - name: Remove distro packages that conflict with Docker Engine
+      ansible.builtin.dnf:
+        name: "{{ docker_packages_to_remove }}"
+        state: absent
+        use_backend: dnf5
+      when: docker_packages_to_remove | length > 0
+
+    - name: Add Docker Fedora repository
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/fedora/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: "0644"
+
+    - name: Install Docker Engine
+      ansible.builtin.dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        use_backend: dnf5
+
 - name: Enable and start Docker
   ansible.builtin.systemd_service:
     name: docker

@@ -37,6 +37,8 @@ main() {
   if ! command -v ansible-pull >/dev/null || ! command -v git >/dev/null; then
     if [ -e /etc/arch-release ]; then
       "${sudo[@]}" pacman -Syu --needed --noconfirm ansible-core git curl ca-certificates
+    elif [ -e /etc/fedora-release ]; then
+      "${sudo[@]}" dnf install -y ansible-core git /usr/bin/curl ca-certificates python3-libdnf5
     else
       "${sudo[@]}" apt-get update
       "${sudo[@]}" env DEBIAN_FRONTEND=noninteractive \

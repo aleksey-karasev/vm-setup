@@ -1,6 +1,6 @@
 # vm-setup
 
-Turns a clean Ubuntu, Debian or Arch Linux machine into a ready dev VM with one
+Turns a clean Ubuntu, Debian, Arch Linux or Fedora machine into a ready dev VM with one
 command, and upgrades everything each time it is run again. Ansible runs on the
 machine itself through `ansible-pull`, so there is no control node.
 
@@ -32,7 +32,7 @@ tool to the newest version. Arguments go to `ansible-pull`:
 
 ```bash
 vm-setup --tags uv,duckdb      # only some components
-vm-setup --skip-tags apt,snap  # pacman on Arch
+vm-setup --skip-tags apt,snap  # pacman on Arch; dnf on Fedora
 vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 ```
 
@@ -52,21 +52,31 @@ fail the play; failures are not treated as successful no-ops.
 | `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, jq, tree, hyperfine, tmux, sqlite3, psql, git-lfs, 7zip, wget, rsync, zip, build-essential, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
-| `docker` | Docker Engine, buildx and compose plugins | Docker's apt repository (Arch: pacman) |
-| `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman) |
+| `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
+| `docker` | Docker Engine, buildx and compose plugins | Docker's apt/RPM repository (Arch: pacman) |
+| `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman; Fedora: dnf) |
 | `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` | uv installer |
 | `pnpm` | pnpm, Node.js | pnpm installer |
 | `rtk`, `rclone`, `duckdb`, `lazydocker` | rtk, rclone, DuckDB CLI, lazydocker | each tool's installer |
 | `starship` | starship, its config and bash init | starship installer, `files/starship.toml` |
 | `shell` | 100k-line bash history shared by all terminals, fzf key bindings in bash, Git LFS in `~/.gitconfig` | `.bashrc` lines and blocks, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
-| `nvidia` | driver, CUDA toolkit, container toolkit, nvtop (opt-in) | NVIDIA's CUDA apt repository (Arch: pacman) |
+| `nvidia` | driver, CUDA toolkit, container toolkit, nvtop (opt-in) | NVIDIA's apt/RPM repositories (Arch: pacman) |
 
 `fd` and `bat` are linked into `~/.local/bin`, because apt installs them as
 `fdfind` and `batcat`.
 
 `psql` is installed from `postgresql-client` on Ubuntu/Debian and
-`postgresql-libs` on Arch. These packages install the PostgreSQL client tools.
+`postgresql-libs` on Arch and `postgresql` on Fedora. These packages install the
+PostgreSQL client tools.
+
+Fedora uses DNF5, with `python3-libdnf5` installed during bootstrap. Its package
+list uses `ffmpeg-free` (Fedora's codec selection), `texlive-scheme-full`,
+`fd-find`, `du-dust`, and explicit compiler/build packages. Only draw.io uses
+Snap on Fedora; the `snap` tag installs snapd, enables its socket and creates
+the `/snap` link. The other tools in the `snap` row use native Fedora packages.
+The `dnf` tag also upgrades installed RPM packages unless `upgrade=false`.
+Fedora's `chromium-browser` is exposed as `~/.local/bin/chromium`.
 
 On Arch, TeX Live is `texlive-meta` and `texlive-lang`, without the 3 GB of
 `texlive-doc`. Arch does not support partial upgrades, so the system is
@@ -83,6 +93,7 @@ To change one machine only, override values in `~/.config/vm-setup/vars.yml`:
 ```yaml
 apt_packages_exclude: [texlive-full]
 pacman_packages_exclude: [texlive-meta, texlive-lang]
+dnf_packages_exclude: [texlive-scheme-full]
 nerd_fonts: [JetBrainsMono, FiraCode]
 ```
 
@@ -101,6 +112,13 @@ as `cuda-drivers` for older GPUs or `cuda-toolkit-12-8` to pin CUDA. On Arch,
 `nvidia-open` is built for the `linux` kernel: use `nvidia-open-lts` for
 `linux-lts`, or `nvidia-open-dkms` and the kernel's headers for any other.
 
+On Fedora, NVIDIA's repository is selected using the Fedora release number.
+The NVIDIA/CUDA setup requires x86_64.
+The driver uses `kernel-devel-matched` and `kernel-headers`; WSL skips the
+driver and kernel packages. CUDA uses `/usr/local/cuda/bin`, and the container
+toolkit uses NVIDIA's separate RPM repository. A new Fedora release needs a
+matching NVIDIA CUDA repository before `--nvidia` can be used.
+
 To add a tool, put it in the matching list in `vars/main.yml`. For a
 `curl | sh` installer, import `tasks/tool.yml` in `local.yml`, as is done for
 rtk.
@@ -112,8 +130,10 @@ terminal and editor theme settings are managed separately.
 
 ## Supported systems
 
-Ubuntu 24.04, Ubuntu 26.04, Debian 13 and Arch Linux, on a VM or under WSL2
+Ubuntu 24.04, Ubuntu 26.04, Debian 13, Arch Linux and Fedora 44, on a VM or under WSL2
 with `systemd=true` in `/etc/wsl.conf` (snaps need systemd).
+The full default installation requires x86_64: draw.io's Snap is unavailable
+for ARM64. Fedora Atomic variants such as Silverblue are not supported.
 
 On Ubuntu 26.04 root tasks run through `sudo.ws`, because Ansible cannot read
 the password prompt of the default sudo-rs.
@@ -131,16 +151,42 @@ ansible-playbook local.yml --ask-become-pass
 
 Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 
-- `ubuntu:24.04`, `ubuntu:26.04`, `debian:13` and `archlinux:latest` boot as
+- `ubuntu:24.04`, `ubuntu:26.04`, `debian:13`, `archlinux:base-20261101.0.620205`
+  and `fedora:44` boot as
   clean systemd containers with a sudo password, install the full default
   set, must change nothing on a second run, and then execute every installed
   tool ([tests/check.sh](tests/check.sh)).
 - The hosted Ubuntu 24.04 VM does the same without texlive-full, and builds
   the NVIDIA driver.
 
-Not covered: the driver on 26.04, Debian and Arch, since containers share the
+The Arch starting image is pinned by its SHA-256 digest in the workflow.
+Provisioning still runs `pacman -Syu` to upgrade packages from current repositories.
+
+Not covered: the driver on 26.04, Debian, Arch and Fedora, since containers share the
 runner's kernel, and anything that needs a GPU. A manual run accepts extra
 `bootstrap.sh` arguments, such as `--tags snap`.
+
+### Distribution regression tests
+
+On Linux with `ansible-core` installed, run:
+
+```bash
+bash -n bootstrap.sh tests/check.sh
+ansible-playbook --syntax-check local.yml
+python3 tests/test_distributions.py
+```
+
+These offline tests exercise bootstrap package-manager selection, existing
+prerequisites, sudo password handling and argument forwarding. Ansible evaluates
+the real task conditions, tags and package arguments through a recording action,
+covering Fedora exclusions, upgrades, Snap setup, NVIDIA/WSL routing, unsupported
+distributions, and the existing Ubuntu/Debian/Arch branches. CI runs these alongside
+the real container installation and unchanged-rerun checks.
+
+Fedora setup references: [Docker RPM installation](https://docs.docker.com/engine/install/fedora/),
+[NVIDIA driver installation](https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/fedora.html),
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html),
+and [Snap on Fedora](https://snapcraft.io/docs/tutorials/install-the-daemon/fedora/).
 
 ### Focused update tests
 

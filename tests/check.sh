@@ -45,6 +45,11 @@ if [ -e /etc/arch-release ]; then
   check test -f /usr/share/bash-completion/bash_completion
 else
   check snap list drawio
+  if [ -e /etc/fedora-release ]; then
+    check rpm -q bash-completion
+    check test -L /snap
+    check systemctl is-active snapd.socket
+  fi
 fi
 
 if $texlive; then

@@ -26,8 +26,8 @@
 
     - name: Check the distribution
       ansible.builtin.assert:
-        that: ansible_facts['distribution'] in ['Ubuntu', 'Debian', 'Archlinux']
-        fail_msg: "Only Ubuntu, Debian and Arch Linux are supported, not {{ ansible_facts['distribution'] }}."
+        that: ansible_facts['distribution'] in ['Ubuntu', 'Debian', 'Archlinux', 'Fedora']
+        fail_msg: "Only Ubuntu, Debian, Arch Linux and Fedora are supported, not {{ ansible_facts['distribution'] }}."
         quiet: true
       tags: [always]
 
@@ -71,6 +71,24 @@
       when: ansible_facts['os_family'] == 'Archlinux'
       tags: [always]
 
+    - name: Install prerequisites
+      ansible.builtin.dnf:
+        name:
+          - ca-certificates
+          - /usr/bin/curl
+          - fontconfig
+          - git
+          - libatomic
+          - python3-libdnf5
+          - tar
+          - unzip
+          - xz
+        state: present
+        use_backend: dnf5
+      become: true
+      when: ansible_facts['distribution'] == 'Fedora'
+      tags: [always]
+
     - name: Create ~/.local/bin
       ansible.builtin.file:
         path: "{{ local_bin }}"
@@ -105,13 +123,18 @@
 
     - name: Snap packages
       ansible.builtin.import_tasks: tasks/snap.yml
-      when: ansible_facts['os_family'] == 'Debian'
+      when: ansible_facts['os_family'] == 'Debian' or ansible_facts['distribution'] == 'Fedora'
       tags: [snap]
 
     - name: Pacman packages
       ansible.builtin.import_tasks: tasks/pacman.yml
       when: ansible_facts['os_family'] == 'Archlinux'
       tags: [pacman]
+
+    - name: Dnf packages
+      ansible.builtin.import_tasks: tasks/dnf.yml
+      when: ansible_facts['distribution'] == 'Fedora'
+      tags: [dnf]
 
     - name: Bash history, fzf key bindings and Git LFS
       ansible.builtin.import_tasks: tasks/shell.yml
@@ -191,3 +214,15 @@
         - ansible_facts['os_family'] == 'Debian'
         - upgrade | bool
       tags: [apt]
+
+    - name: Upgrade installed dnf packages
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+        update_cache: true
+        use_backend: dnf5
+      become: true
+      when:
+        - ansible_facts['distribution'] == 'Fedora'
+        - upgrade | bool
+      tags: [dnf]

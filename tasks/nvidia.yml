@@ -80,6 +80,68 @@
       register: nvtop_pacman
       changed_when: "'there is nothing to do' not in nvtop_pacman.stdout"
 
+- name: Install from NVIDIA's Fedora repositories
+  when: ansible_facts['distribution'] == 'Fedora'
+  become: true
+  vars:
+    nvidia_fedora_repo: "fedora{{ ansible_facts['distribution_major_version'] }}"
+  block:
+    - name: Check the Fedora CUDA architecture
+      ansible.builtin.assert:
+        that: ansible_facts['architecture'] == 'x86_64'
+        fail_msg: Fedora NVIDIA/CUDA setup currently requires x86_64.
+        quiet: true
+
+    - name: Add NVIDIA CUDA Fedora repository
+      ansible.builtin.get_url:
+        url: "https://developer.download.nvidia.com/compute/cuda/repos/{{ nvidia_fedora_repo }}/x86_64/cuda-{{ nvidia_fedora_repo }}.repo"
+        dest: /etc/yum.repos.d/cuda-fedora.repo
+        mode: "0644"
+
+    - name: Install CUDA toolkit
+      ansible.builtin.dnf:
+        name: "{{ nvidia_cuda_package }}"
+        state: present
+        use_backend: dnf5
+
+    - name: Put the CUDA tools on PATH
+      ansible.builtin.copy:
+        content: |
+          export PATH="/usr/local/cuda/bin${PATH:+:$PATH}"
+        dest: /etc/profile.d/cuda.sh
+        mode: "0644"
+
+    - name: Install kernel headers for the NVIDIA kernel module
+      ansible.builtin.dnf:
+        name:
+          - kernel-devel-matched
+          - kernel-headers
+        state: present
+        use_backend: dnf5
+      when: not (is_wsl | bool)
+
+    - name: Install NVIDIA driver
+      ansible.builtin.dnf:
+        name: "{{ nvidia_driver_package }}"
+        state: present
+        use_backend: dnf5
+      register: nvidia_driver_dnf
+      when: not (is_wsl | bool)
+
+    - name: Add NVIDIA Container Toolkit repository
+      ansible.builtin.get_url:
+        url: https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo
+        dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
+        mode: "0644"
+
+    - name: Install NVIDIA Container Toolkit and nvtop
+      ansible.builtin.dnf:
+        name:
+          - nvidia-container-toolkit
+          - nvtop
+        state: present
+        use_backend: dnf5
+
 - name: Read the Docker daemon config
   ansible.builtin.slurp:
     src: /etc/docker/daemon.json
@@ -105,4 +167,4 @@
 - name: Ask for a reboot after a driver change
   ansible.builtin.debug:
     msg: The NVIDIA driver was installed or updated. Reboot to load it.
-  when: nvidia_driver is changed or nvidia_driver_pacman is changed
+  when: nvidia_driver is changed or nvidia_driver_pacman is changed or nvidia_driver_dnf is changed

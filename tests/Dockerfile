@@ -11,6 +11,11 @@ RUN if [ -e /etc/arch-release ]; then \
     && systemctl mask systemd-networkd-wait-online.service \
     && rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/* \
     && admin_group=wheel; \
+    elif [ -e /etc/fedora-release ]; then \
+    dnf install -y systemd dbus sudo diffutils util-linux passwd \
+    && echo '%wheel ALL=(ALL:ALL) ALL' >/etc/sudoers.d/wheel \
+    && dnf clean all \
+    && admin_group=wheel; \
     else \
     apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus \

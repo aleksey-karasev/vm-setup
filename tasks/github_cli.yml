@@ -28,3 +28,11 @@
   register: github_cli_pacman
   changed_when: "'there is nothing to do' not in github_cli_pacman.stdout"
   when: ansible_facts['os_family'] == 'Archlinux'
+
+- name: Install GitHub CLI from Fedora's repositories
+  ansible.builtin.dnf:
+    name: gh
+    state: present
+    use_backend: dnf5
+  become: true
+  when: ansible_facts['distribution'] == 'Fedora'
