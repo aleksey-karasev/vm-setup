@@ -236,6 +236,10 @@
       when: ansible_facts['os_family'] != 'Darwin'
       tags: [lazydocker]
 
+    - name: Lazygit
+      ansible.builtin.import_tasks: tasks/lazygit.yml
+      tags: [lazygit]
+
     - name: Rclone on macOS
       ansible.builtin.import_tasks: tasks/homebrew.yml
       vars:

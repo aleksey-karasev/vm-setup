@@ -1,0 +1,43 @@
+---
+- name: Install Lazygit on macOS
+  ansible.builtin.import_tasks: homebrew.yml
+  vars:
+    homebrew_names: [lazygit]
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: Install Lazygit from its Linux releases
+  when: ansible_facts['os_family'] != 'Darwin'
+  block:
+    - name: Check the Lazygit architecture
+      ansible.builtin.assert:
+        that: ansible_facts['architecture'] in ['x86_64', 'aarch64', 'arm64']
+        fail_msg: Lazygit installation supports x86_64 and ARM64.
+        quiet: true
+
+    - name: Check installed lazygit
+      ansible.builtin.command: "{{ local_bin }}/lazygit --version"
+      register: lazygit_installed
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install or update Lazygit
+      when: lazygit_installed.rc != 0 or upgrade | bool
+      block:
+        - name: Look up the latest Lazygit release
+          ansible.builtin.uri:
+            url: https://github.com/jesseduffield/lazygit/releases/latest
+            follow_redirects: none
+            status_code: 302
+          register: lazygit_latest
+          check_mode: false
+
+        - name: Extract the Lazygit binary
+          ansible.builtin.unarchive:
+            src: "https://github.com/jesseduffield/lazygit/releases/download/{{ lazygit_tag }}/lazygit_{{ lazygit_tag | regex_replace('^v', '') }}_Linux_{{ lazygit_arch }}.tar.gz"
+            dest: "{{ local_bin }}"
+            remote_src: true
+            include: [lazygit]
+          vars:
+            lazygit_tag: "{{ lazygit_latest.location | basename }}"
+            lazygit_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x86_64' }}"

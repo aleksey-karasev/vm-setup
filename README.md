@@ -67,6 +67,7 @@ fail the play; failures are not treated as successful no-ops.
 | `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` | uv installer |
 | `pnpm` | pnpm, Node.js | pnpm installer |
 | `rtk`, `rclone`, `duckdb`, `lazydocker` | rtk, rclone, DuckDB CLI, lazydocker | each tool's installer (macOS: rclone and lazydocker from Homebrew) |
+| `lazygit` | Lazygit terminal UI for Git | official GitHub release on Linux; Homebrew on macOS |
 | `starship` | starship, its config and bash init; zsh init on macOS | starship installer, `files/starship.toml` |
 | `shell` | 100k-line shared history and fzf key bindings in bash (also zsh on macOS), Git LFS in `~/.gitconfig` | shell configuration, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
@@ -91,11 +92,16 @@ macOS uses Homebrew formulae for CLI packages, including `texlive`, `libpq`
 (PostgreSQL client tools), `sevenzip` (`7zz`), and `gnu-tar` for font extraction.
 Compiler tools come from Xcode Command Line Tools. The `brew` tag installs and
 upgrades the configured formulae and casks; component tags such as `gh`, `docker`,
-`rclone` and `lazydocker` manage their own formulae. With `upgrade=false`, installed
+`rclone`, `lazydocker` and `lazygit` manage their own formulae. With `upgrade=false`, installed
 packages are left alone and Homebrew metadata is not refreshed.
 Homebrew's [Chromium cask is disabled](https://formulae.brew.sh/cask/chromium),
 so macOS installs [Ungoogled Chromium](https://formulae.brew.sh/cask/ungoogled-chromium)
 and exposes its executable as `chromium`.
+
+Lazygit installs on every supported system. On Linux, the `lazygit` tag extracts
+the latest official x86_64 or ARM64 release into `~/.local/bin`; macOS uses its
+Homebrew formula. Run `vm-setup --tags lazygit` to install or update it alone.
+With `upgrade=false`, an existing installation is kept.
 
 The macOS `docker` tag installs Docker CLI, buildx, compose and
 [Colima](https://github.com/abiosoft/colima), starts Colima's default Linux VM,
@@ -195,7 +201,7 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 - The hosted Ubuntu 24.04 VM does the same without texlive-full, and builds
   the NVIDIA driver.
 - The hosted macOS 15 runner executes the offline regression suite and installs
-  a small Homebrew package set, GitHub CLI, shell configuration, Starship and fonts.
+  a small Homebrew package set, GitHub CLI, Lazygit, shell configuration, Starship and fonts.
   It checks an unchanged rerun and both zsh and bash login shells. The full macOS
   package list, GUI applications and Colima VM startup are not covered by this job.
 

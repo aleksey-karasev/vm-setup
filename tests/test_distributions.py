@@ -201,7 +201,11 @@ class DistributionTasks(unittest.TestCase):
             "        if arguments == 'colima status':\n"
             "            return dict(changed=False, rc=int(os.environ.get('TEST_COLIMA_RC', '0')))\n"
             "        if self._task.args['module'] == 'ansible.builtin.uri':\n"
+            "            if '/lazygit/' in arguments['url']:\n"
+            "                return dict(changed=False, location='https://github.com/jesseduffield/lazygit/releases/tag/v0.55.1')\n"
             "            return dict(changed=False, location='https://github.com/ryanoasis/nerd-fonts/releases/tag/v3.4.0')\n"
+            "        if isinstance(arguments, str) and arguments.endswith('/lazygit --version'):\n"
+            "            return dict(changed=False, rc=0 if os.environ['TEST_LAZYGIT_INSTALLED'] == '1' else 1)\n"
             "        if argv and argv[0].endswith('/pnpm') and 'list' in argv:\n"
             "            return dict(changed=False, rc=0, stdout='[]')\n"
             "        if self._task.args['module'] == 'ansible.builtin.command' and str(self._task.args['arguments']).startswith('rpm -qa '):\n"
@@ -239,7 +243,8 @@ class DistributionTasks(unittest.TestCase):
 
     def playbook(self, distro="Fedora", *, tags="dnf,snap,docker,gh,nvidia", success=True,
                  installed_rpms=(), architecture="x86_64", failure_message=None,
-                 brew_installed=(), brew_outdated=None, colima_rc=0, **variables):
+                 brew_installed=(), brew_outdated=None, colima_rc=0,
+                 lazygit_installed=True, **variables):
         facts = {
             "distribution": distro,
             "os_family": {"Fedora": "RedHat", "Archlinux": "Archlinux", "MacOSX": "Darwin"}.get(distro, "Debian"),
@@ -260,6 +265,7 @@ class DistributionTasks(unittest.TestCase):
                      TEST_BREW_INSTALLED=json.dumps(brew_installed),
                      TEST_BREW_OUTDATED=json.dumps(brew_outdated or {}),
                      TEST_COLIMA_RC=str(colima_rc), HOMEBREW_PREFIX="",
+                     TEST_LAZYGIT_INSTALLED="1" if lazygit_installed else "0",
                      ANSIBLE_HOME=str(self.base / "ansible")),
             capture_output=True, text=True, timeout=120,
         )
@@ -346,7 +352,7 @@ class DistributionTasks(unittest.TestCase):
                 casks = [name for argv in brew_installs if "--cask" in argv for name in argv[3:]]
                 self.assertNotIn("texlive", formulae)
                 self.assertNotIn("drawio", casks)
-                self.assertTrue({"libpq", "fd", "gh", "rclone", "lazydocker", "colima", "docker-compose"}.issubset(formulae))
+                self.assertTrue({"libpq", "fd", "gh", "rclone", "lazydocker", "lazygit", "colima", "docker-compose"}.issubset(formulae))
                 self.assertEqual(set(casks), {"inkscape", "ungoogled-chromium"})
                 names = [call["name"] for call in calls]
                 self.assertIn("Enable starship in zsh", names)
@@ -376,7 +382,7 @@ class DistributionTasks(unittest.TestCase):
         self.assertNotIn("Install Homebrew packages", names)
 
     def test_macos_component_tags_and_colima_start(self):
-        for tag, package in (("gh", "gh"), ("rclone", "rclone"), ("lazydocker", "lazydocker"), ("docker", "colima")):
+        for tag, package in (("gh", "gh"), ("rclone", "rclone"), ("lazydocker", "lazydocker"), ("lazygit", "lazygit"), ("docker", "colima")):
             with self.subTest(tag=tag):
                 self.log.unlink(missing_ok=True)
                 calls = self.playbook("MacOSX", tags=tag, colima_rc=1)
@@ -385,6 +391,29 @@ class DistributionTasks(unittest.TestCase):
                 self.assertIn(package, installs)
                 self.assertNotIn("ffmpeg", installs)
                 self.assertEqual(any(call["name"] == "Start Colima" for call in calls), tag == "docker")
+
+    def test_lazygit_linux_releases_on_every_distribution(self):
+        for distro in ("Ubuntu", "Debian", "Archlinux", "Fedora"):
+            for architecture, release_arch in (("x86_64", "x86_64"), ("aarch64", "arm64")):
+                with self.subTest(distro=distro, architecture=architecture):
+                    self.log.unlink(missing_ok=True)
+                    calls = self.playbook(distro, tags="lazygit", architecture=architecture)
+                    archive = next(call for call in calls if call["name"] == "Extract the Lazygit binary")
+                    self.assertEqual(archive["arguments"]["src"],
+                                     "https://github.com/jesseduffield/lazygit/releases/download/"
+                                     f"v0.55.1/lazygit_0.55.1_Linux_{release_arch}.tar.gz")
+                    self.assertEqual(archive["arguments"]["dest"], str(self.base / "home/.local/bin"))
+                    self.assertEqual(archive["arguments"]["include"], ["lazygit"])
+                    self.assertFalse(archive["become"])
+
+    def test_lazygit_upgrade_false_keeps_installed_binary(self):
+        calls = self.playbook(tags="lazygit", upgrade=False)
+        self.assertNotIn("Extract the Lazygit binary", [call["name"] for call in calls])
+        self.assertNotIn("Look up the latest Lazygit release", [call["name"] for call in calls])
+
+    def test_lazygit_upgrade_false_still_installs_missing_binary(self):
+        calls = self.playbook(tags="lazygit", upgrade=False, lazygit_installed=False)
+        self.assertIn("Extract the Lazygit binary", [call["name"] for call in calls])
 
     def test_unsupported_distribution_fails_before_installing(self):
         self.assertEqual(self.playbook("Rocky", success=False,
