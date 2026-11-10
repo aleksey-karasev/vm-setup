@@ -1,5 +1,5 @@
 ---
-- name: Prepare dev VM
+- name: Prepare dev machine
   hosts: localhost
   connection: local
   vars_files:
@@ -8,186 +8,288 @@
     home: "{{ lookup('ansible.builtin.env', 'HOME') }}"
     username: "{{ ansible_facts['user_id'] }}"
     local_bin: "{{ home }}/.local/bin"
-    pnpm_home: "{{ home }}/.local/share/pnpm"
+    pnpm_home: "{{ home }}/{{ 'Library/pnpm' if ansible_facts['os_family'] == 'Darwin' else '.local/share/pnpm' }}"
+    homebrew_prefix: "{{ lookup('ansible.builtin.env', 'HOMEBREW_PREFIX') or ('/opt/homebrew' if ansible_facts['architecture'] == 'arm64' else '/usr/local') }}"
     machine_vars_file: "{{ home }}/.config/vm-setup/vars.yml"
     deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
     is_wsl: "{{ 'microsoft' in ansible_facts['kernel'] | lower }}"
     ansible_become_exe: "{{ 'sudo.ws' if '/usr/bin/sudo.ws' is exists else 'sudo' }}"
-  environment:
-    PNPM_HOME: "{{ pnpm_home }}"
-    PATH: "{{ local_bin }}:{{ pnpm_home }}/bin:{{ lookup('ansible.builtin.env', 'PATH') }}"
 
   tasks:
-    - name: Load per-machine overrides
-      ansible.builtin.include_vars:
-        file: "{{ machine_vars_file }}"
-      when: machine_vars_file is file
-      tags: [always]
-
-    - name: Check the distribution
-      ansible.builtin.assert:
-        that: ansible_facts['distribution'] in ['Ubuntu', 'Debian', 'Archlinux']
-        fail_msg: "Only Ubuntu, Debian and Arch Linux are supported, not {{ ansible_facts['distribution'] }}."
-        quiet: true
-      tags: [always]
-
-    - name: Install prerequisites
-      ansible.builtin.apt:
-        name:
-          - ca-certificates
-          - curl
-          - fontconfig
-          - git
-          - libatomic1
-          - python3-debian
-          - unzip
-          - xz-utils
-        state: present
-        update_cache: true
-        cache_valid_time: 3600
-      become: true
-      when: ansible_facts['os_family'] == 'Debian'
-      tags: [always]
-
-    - name: Upgrade installed pacman packages
-      ansible.builtin.command: pacman -Syu --noconfirm
+    # Fact-dependent paths belong here, after Gathering Facts has completed.
+    - name: Configure the development environment
       environment:
-        LC_ALL: C
-      become: true
-      register: pacman_upgrade
-      changed_when: "'there is nothing to do' not in pacman_upgrade.stdout"
-      when:
-        - ansible_facts['os_family'] == 'Archlinux'
-        - upgrade | bool
-      tags: [pacman, docker, gh, nvidia]
+        PNPM_HOME: "{{ pnpm_home }}"
+        PATH: "{{ local_bin }}:{{ pnpm_home }}/bin:{{ (homebrew_prefix ~ '/bin:' ~ homebrew_prefix ~ '/sbin:' ~ homebrew_prefix ~ '/opt/libpq/bin:') if ansible_facts['os_family'] == 'Darwin' else '' }}{{ lookup('ansible.builtin.env', 'PATH') }}"
+        HOMEBREW_NO_AUTO_UPDATE: "1"
+      block:
+        - name: Load per-machine overrides
+          ansible.builtin.include_vars:
+            file: "{{ machine_vars_file }}"
+          when: machine_vars_file is file
+          tags: [always]
 
-    - name: Install prerequisites
-      ansible.builtin.command: pacman -S --needed --noconfirm ca-certificates curl fontconfig git libatomic tar unzip xz
-      environment:
-        LC_ALL: C
-      become: true
-      register: pacman_prerequisites
-      changed_when: "'there is nothing to do' not in pacman_prerequisites.stdout"
-      when: ansible_facts['os_family'] == 'Archlinux'
-      tags: [always]
+        - name: Check the distribution
+          ansible.builtin.assert:
+            that: ansible_facts['distribution'] in ['Ubuntu', 'Debian', 'Archlinux', 'Fedora', 'MacOSX']
+            fail_msg: "Only Ubuntu, Debian, Arch Linux, Fedora and macOS are supported, not {{ ansible_facts['distribution'] }}."
+            quiet: true
+          tags: [always]
 
-    - name: Create ~/.local/bin
-      ansible.builtin.file:
-        path: "{{ local_bin }}"
-        state: directory
-        mode: "0755"
-      tags: [always]
+        - name: Update Homebrew metadata
+          ansible.builtin.command: "{{ homebrew_prefix }}/bin/brew update"
+          changed_when: false
+          when:
+            - ansible_facts['os_family'] == 'Darwin'
+            - upgrade | bool
+          tags: [always]
 
-    - name: Put ~/.local/bin on PATH
-      ansible.builtin.blockinfile:
-        path: "{{ home }}/.bashrc"
-        marker: "# {mark} ~/.local/bin (managed by vm-setup)"
-        block: |
-          case ":$PATH:" in
-            *":$HOME/.local/bin:"*) ;;
-            *) export PATH="$HOME/.local/bin:$PATH" ;;
-          esac
-        create: true
-        mode: "0644"
-      tags: [always]
+        - name: Install macOS prerequisites
+          ansible.builtin.import_tasks: tasks/homebrew.yml
+          vars:
+            homebrew_names: [ca-certificates, curl, git, gnu-tar, xz]
+          when: ansible_facts['os_family'] == 'Darwin'
+          tags: [always]
 
-    - name: Install the vm-setup command
-      ansible.builtin.file:
-        src: "{{ playbook_dir }}/bootstrap.sh"
-        dest: "{{ local_bin }}/vm-setup"
-        state: link
-      tags: [always]
+        - name: Install prerequisites
+          ansible.builtin.apt:
+            name:
+              - ca-certificates
+              - curl
+              - fontconfig
+              - git
+              - libatomic1
+              - python3-debian
+              - unzip
+              - xz-utils
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+          become: true
+          when: ansible_facts['os_family'] == 'Debian'
+          tags: [always]
 
-    - name: Apt packages
-      ansible.builtin.import_tasks: tasks/apt.yml
-      when: ansible_facts['os_family'] == 'Debian'
-      tags: [apt]
+        - name: Upgrade installed pacman packages
+          ansible.builtin.command: pacman -Syu --noconfirm
+          environment:
+            LC_ALL: C
+          become: true
+          register: pacman_upgrade
+          changed_when: "'there is nothing to do' not in pacman_upgrade.stdout"
+          when:
+            - ansible_facts['os_family'] == 'Archlinux'
+            - upgrade | bool
+          tags: [pacman, docker, gh, nvidia]
 
-    - name: Snap packages
-      ansible.builtin.import_tasks: tasks/snap.yml
-      when: ansible_facts['os_family'] == 'Debian'
-      tags: [snap]
+        - name: Install prerequisites
+          ansible.builtin.command: pacman -S --needed --noconfirm ca-certificates curl fontconfig git libatomic tar unzip xz
+          environment:
+            LC_ALL: C
+          become: true
+          register: pacman_prerequisites
+          changed_when: "'there is nothing to do' not in pacman_prerequisites.stdout"
+          when: ansible_facts['os_family'] == 'Archlinux'
+          tags: [always]
 
-    - name: Pacman packages
-      ansible.builtin.import_tasks: tasks/pacman.yml
-      when: ansible_facts['os_family'] == 'Archlinux'
-      tags: [pacman]
+        - name: Install prerequisites
+          ansible.builtin.dnf:
+            name:
+              - ca-certificates
+              - /usr/bin/curl
+              - fontconfig
+              - git
+              - libatomic
+              - python3-libdnf5
+              - tar
+              - unzip
+              - xz
+            state: present
+            use_backend: dnf5
+          become: true
+          when: ansible_facts['distribution'] == 'Fedora'
+          tags: [always]
 
-    - name: Bash history, fzf key bindings and Git LFS
-      ansible.builtin.import_tasks: tasks/shell.yml
-      tags: [shell]
+        - name: Create ~/.local/bin
+          ansible.builtin.file:
+            path: "{{ local_bin }}"
+            state: directory
+            mode: "0755"
+          tags: [always]
 
-    - name: Docker Engine
-      ansible.builtin.import_tasks: tasks/docker.yml
-      tags: [docker]
+        - name: Put ~/.local/bin on PATH
+          ansible.builtin.blockinfile:
+            path: "{{ home }}/.bashrc"
+            marker: "# {mark} ~/.local/bin (managed by vm-setup)"
+            block: |
+              case ":$PATH:" in
+                *":$HOME/.local/bin:"*) ;;
+                *) export PATH="$HOME/.local/bin:$PATH" ;;
+              esac
+            create: true
+            mode: "0644"
+          tags: [always]
 
-    - name: GitHub CLI
-      ansible.builtin.import_tasks: tasks/github_cli.yml
-      tags: [gh]
+        - name: Install the vm-setup command
+          ansible.builtin.file:
+            src: "{{ playbook_dir }}/bootstrap.sh"
+            dest: "{{ local_bin }}/vm-setup"
+            state: link
+          tags: [always]
 
-    - name: Uv, Python versions and Python tools
-      ansible.builtin.import_tasks: tasks/uv.yml
-      tags: [uv]
+        - name: Apt packages
+          ansible.builtin.import_tasks: tasks/apt.yml
+          when: ansible_facts['os_family'] == 'Debian'
+          tags: [apt]
 
-    - name: Pnpm and Node.js
-      ansible.builtin.import_tasks: tasks/pnpm.yml
-      tags: [pnpm, node]
+        - name: Snap packages
+          ansible.builtin.import_tasks: tasks/snap.yml
+          when: ansible_facts['os_family'] == 'Debian' or ansible_facts['distribution'] == 'Fedora'
+          tags: [snap]
 
-    - name: Rtk
-      ansible.builtin.import_tasks: tasks/tool.yml
-      vars:
-        tool_name: rtk
-        tool_bin: "{{ local_bin }}/rtk"
-        tool_install: curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
-      tags: [rtk]
+        - name: Pacman packages
+          ansible.builtin.import_tasks: tasks/pacman.yml
+          when: ansible_facts['os_family'] == 'Archlinux'
+          tags: [pacman]
 
-    - name: Rclone
-      ansible.builtin.import_tasks: tasks/tool.yml
-      vars:
-        tool_name: rclone
-        tool_bin: /usr/bin/rclone
-        tool_install: curl -fsSL https://rclone.org/install.sh | bash
-        tool_become: true
-        tool_ok_rc: [0, 3]
-      tags: [rclone]
+        - name: Dnf packages
+          ansible.builtin.import_tasks: tasks/dnf.yml
+          when: ansible_facts['distribution'] == 'Fedora'
+          tags: [dnf]
 
-    - name: DuckDB
-      ansible.builtin.import_tasks: tasks/tool.yml
-      vars:
-        tool_name: DuckDB
-        tool_bin: "{{ local_bin }}/duckdb"
-        tool_install: curl -fsSL https://install.duckdb.org | sh
-      tags: [duckdb]
+        - name: Homebrew formulae
+          ansible.builtin.import_tasks: tasks/homebrew.yml
+          vars:
+            homebrew_names: "{{ brew_packages | difference(brew_packages_exclude) }}"
+          when: ansible_facts['os_family'] == 'Darwin'
+          tags: [brew]
 
-    - name: Lazydocker
-      ansible.builtin.import_tasks: tasks/tool.yml
-      vars:
-        tool_name: lazydocker
-        tool_bin: "{{ local_bin }}/lazydocker"
-        tool_install: >-
-          cd "$(mktemp -d)" &&
-          curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
-      tags: [lazydocker]
+        - name: Homebrew casks
+          ansible.builtin.import_tasks: tasks/homebrew.yml
+          vars:
+            homebrew_names: "{{ brew_casks | difference(brew_casks_exclude) }}"
+            homebrew_kind: cask
+          when: ansible_facts['os_family'] == 'Darwin'
+          tags: [brew]
 
-    - name: Starship prompt
-      ansible.builtin.import_tasks: tasks/starship.yml
-      tags: [starship]
+        - name: Expose Chromium on macOS
+          ansible.builtin.file:
+            src: /Applications/Chromium.app/Contents/MacOS/Chromium
+            dest: "{{ local_bin }}/chromium"
+            state: link
+          when:
+            - ansible_facts['os_family'] == 'Darwin'
+            - "'/Applications/Chromium.app/Contents/MacOS/Chromium' is exists"
+          tags: [brew]
 
-    - name: Nerd Fonts
-      ansible.builtin.import_tasks: tasks/nerd_fonts.yml
-      tags: [fonts]
+        - name: Bash history, fzf key bindings and Git LFS
+          ansible.builtin.import_tasks: tasks/shell.yml
+          tags: [shell]
 
-    - name: NVIDIA driver, CUDA and container toolkit
-      ansible.builtin.import_tasks: tasks/nvidia.yml
-      when: nvidia_enabled | bool
-      tags: [nvidia]
+        - name: Docker Engine
+          ansible.builtin.import_tasks: tasks/docker.yml
+          tags: [docker]
 
-    - name: Upgrade installed apt packages
-      ansible.builtin.apt:
-        update_cache: true
-        upgrade: dist
-      become: true
-      when:
-        - ansible_facts['os_family'] == 'Debian'
-        - upgrade | bool
-      tags: [apt]
+        - name: GitHub CLI
+          ansible.builtin.import_tasks: tasks/github_cli.yml
+          tags: [gh]
+
+        - name: Uv, Python versions and Python tools
+          ansible.builtin.import_tasks: tasks/uv.yml
+          tags: [uv]
+
+        - name: Pnpm and Node.js
+          ansible.builtin.import_tasks: tasks/pnpm.yml
+          tags: [pnpm, node]
+
+        - name: Rtk
+          ansible.builtin.import_tasks: tasks/tool.yml
+          vars:
+            tool_name: rtk
+            tool_bin: "{{ local_bin }}/rtk"
+            tool_install: curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
+          tags: [rtk]
+
+        - name: Rclone
+          ansible.builtin.import_tasks: tasks/tool.yml
+          vars:
+            tool_name: rclone
+            tool_bin: /usr/bin/rclone
+            tool_install: curl -fsSL https://rclone.org/install.sh | bash
+            tool_become: true
+            tool_ok_rc: [0, 3]
+          when: ansible_facts['os_family'] != 'Darwin'
+          tags: [rclone]
+
+        - name: DuckDB
+          ansible.builtin.import_tasks: tasks/tool.yml
+          vars:
+            tool_name: DuckDB
+            tool_bin: "{{ local_bin }}/duckdb"
+            tool_install: curl -fsSL https://install.duckdb.org | sh
+          tags: [duckdb]
+
+        - name: Lazydocker
+          ansible.builtin.import_tasks: tasks/tool.yml
+          vars:
+            tool_name: lazydocker
+            tool_bin: "{{ local_bin }}/lazydocker"
+            tool_install: >-
+              cd "$(mktemp -d)" &&
+              curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+          when: ansible_facts['os_family'] != 'Darwin'
+          tags: [lazydocker]
+
+        - name: Lazygit
+          ansible.builtin.import_tasks: tasks/lazygit.yml
+          tags: [lazygit]
+
+        - name: Rclone on macOS
+          ansible.builtin.import_tasks: tasks/homebrew.yml
+          vars:
+            homebrew_names: [rclone]
+          when: ansible_facts['os_family'] == 'Darwin'
+          tags: [rclone]
+
+        - name: Lazydocker on macOS
+          ansible.builtin.import_tasks: tasks/homebrew.yml
+          vars:
+            homebrew_names: [lazydocker]
+          when: ansible_facts['os_family'] == 'Darwin'
+          tags: [lazydocker]
+
+        - name: Starship prompt
+          ansible.builtin.import_tasks: tasks/starship.yml
+          tags: [starship]
+
+        - name: Nerd Fonts
+          ansible.builtin.import_tasks: tasks/nerd_fonts.yml
+          tags: [fonts]
+
+        - name: NVIDIA driver, CUDA and container toolkit
+          ansible.builtin.import_tasks: tasks/nvidia.yml
+          when:
+            - nvidia_enabled | bool
+            - ansible_facts['os_family'] != 'Darwin'
+          tags: [nvidia]
+
+        - name: Upgrade installed apt packages
+          ansible.builtin.apt:
+            update_cache: true
+            upgrade: dist
+          become: true
+          when:
+            - ansible_facts['os_family'] == 'Debian'
+            - upgrade | bool
+          tags: [apt]
+
+        - name: Upgrade installed dnf packages
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+            update_cache: true
+            use_backend: dnf5
+          become: true
+          when:
+            - ansible_facts['distribution'] == 'Fedora'
+            - upgrade | bool
+          tags: [dnf]

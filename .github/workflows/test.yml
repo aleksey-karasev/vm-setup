@@ -15,6 +15,48 @@ defaults:
     shell: bash
 
 jobs:
+  distributions:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: python -m pip install ansible-core
+      - run: |
+          bash -n bootstrap.sh tests/check.sh
+          ansible-playbook --syntax-check local.yml
+          python tests/test_distributions.py
+          python tests/test_snap.py
+
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      VM_SETUP_REPO: ${{ github.workspace }}
+      VM_SETUP_REF: ${{ github.sha }}
+      EXTRA_VARS: '{"brew_packages": ["fd", "bat", "fzf", "git-lfs", "libpq"], "brew_casks": []}'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: python -m pip install ansible-core
+      - name: Offline regression tests on macOS
+        run: python tests/test_distributions.py
+      - name: Install macOS packages and shell configuration
+        run: ./bootstrap.sh --tags brew,shell,gh,lazygit,starship,fonts -e "$EXTRA_VARS"
+      - name: Second run changes nothing
+        run: |
+          ./bootstrap.sh --tags brew,shell,gh,lazygit,starship,fonts -e "$EXTRA_VARS" | tee second-run.log
+          grep -q 'changed=0 ' second-run.log
+      - name: Check the macOS shell and installed tools
+        run: |
+          zsh -lic 'set -e; for tool in fd bat fzf psql gh lazygit starship vm-setup; do command -v "$tool"; done; lazygit --version; [[ "$HISTSIZE" = 100000 ]]; whence -w fzf-history-widget; [[ "$STARSHIP_SHELL" = zsh ]]'
+          bash -lic 'set -e; declare -F starship_precmd; declare -F __fzf_history__; [[ "$HISTSIZE" = 100000 ]]; git config --global --get filter.lfs.process'
+          test -f "$HOME/Library/Fonts/NerdFonts/JetBrainsMono/.release"
+          diff files/starship.toml "$HOME/.config/starship.toml"
+
   container:
     name: ${{ matrix.image }}
     runs-on: ubuntu-24.04
@@ -22,7 +64,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ["ubuntu:24.04", "ubuntu:26.04", "debian:13", "archlinux:latest"]
+        image:
+          - "ubuntu:24.04"
+          - "ubuntu:26.04"
+          - "debian:13"
+          - "archlinux:base-20261101.0.620205@sha256:b1c2fe6e717bfd5673af8fc217e1e1c3ce0dcbb1d53c3414c8425e7ce79fc6d9"
+          - "fedora:44"
     steps:
       - uses: actions/checkout@v5
 
@@ -33,16 +80,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y expect
+          # Fedora's snapd uses squashfuse in containers; Docker only exposes
+          # devices that exist when the privileged container is created.
+          sudo modprobe fuse
           docker build --build-arg IMAGE=${{ matrix.image }} --build-arg USER_ID="$(id -u)" --tag machine tests
           docker run --detach --name machine --privileged --tmpfs /run:exec --tmpfs /run/lock \
             --volume /sys/kernel/security:/sys/kernel/security \
             --volume /var/lib/docker --volume /var/lib/containerd \
             --volume "$GITHUB_WORKSPACE:/repo:ro" machine
+          docker exec machine test -c /dev/fuse
           docker exec machine bash -c \
             'for i in $(seq 0 255); do [ -e /dev/loop$i ] || mknod -m 660 /dev/loop$i b 7 $i; done'
           timeout 120 bash -c \
             'until docker exec machine systemctl is-system-running 2>/dev/null | grep -Eq "running|degraded"; do sleep 2; done'
           docker exec machine systemctl --failed --no-legend
+          # Snaps using core26 require a systemd user manager and session bus.
+          docker exec machine loginctl enable-linger dev
+          docker exec machine systemctl start "user@$(id -u).service"
+          docker exec --user dev --env XDG_RUNTIME_DIR="/run/user/$(id -u)" \
+            machine systemctl --user is-active dbus.socket
 
       - name: First run installs everything
         run: tests/bootstrap.exp --nvidia -e is_wsl=true ${{ inputs.args }}
@@ -57,7 +113,9 @@ jobs:
           grep -q 'changed=0 ' second-run.log
 
       - name: Installed tools run
-        run: docker exec --user dev machine bash -li /repo/tests/check.sh --nvidia
+        run: |
+          docker exec --user dev --env XDG_RUNTIME_DIR="/run/user/$(id -u)" \
+            machine bash -li /repo/tests/check.sh --nvidia
 
       - name: Machine state after a failure
         if: failure()
@@ -65,6 +123,10 @@ jobs:
           df -h /
           docker exec machine systemctl --failed --no-pager || true
           docker exec machine journalctl --no-pager --lines 80 --priority warning || true
+          docker exec machine journalctl --no-pager --lines 200 --unit snapd.service --unit '*.mount' || true
+          docker exec machine snap changes || true
+          docker exec machine bash -c \
+            'for change in $(snap changes | awk "NR > 1 {print \$1}"); do snap tasks "$change"; done' || true
 
   vm:
     runs-on: ubuntu-24.04

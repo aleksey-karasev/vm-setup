@@ -26,7 +26,7 @@ for tool in ruff ty pytest cookiecutter pre-commit crewai llmfit mlflow httpx2 h
 done
 check jupyter lab --version
 
-for tool in uv pnpm node rtk rclone duckdb lazydocker starship gh docker rg fd bat duf \
+for tool in uv pnpm node rtk rclone duckdb lazydocker lazygit starship gh docker rg fd bat duf \
             eza fzf jq tree hyperfine sqlite3 psql wget rsync gcc make cmake pkg-config \
             inkscape pandoc procs dust btop chromium; do
   check "$tool" --version
@@ -45,6 +45,11 @@ if [ -e /etc/arch-release ]; then
   check test -f /usr/share/bash-completion/bash_completion
 else
   check snap list drawio
+  if [ -e /etc/fedora-release ]; then
+    check rpm -q bash-completion
+    check test -L /snap
+    check systemctl is-active snapd.socket
+  fi
 fi
 
 if $texlive; then

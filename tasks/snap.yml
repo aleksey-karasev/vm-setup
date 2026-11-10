@@ -4,6 +4,31 @@
     name: snapd
     state: present
   become: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Install snapd on Fedora
+  ansible.builtin.dnf:
+    name: snapd
+    state: present
+    use_backend: dnf5
+  become: true
+  when: ansible_facts['distribution'] == 'Fedora'
+
+- name: Expose the Fedora snap mount directory
+  ansible.builtin.file:
+    src: /var/lib/snapd/snap
+    dest: /snap
+    state: link
+  become: true
+  when: ansible_facts['distribution'] == 'Fedora'
+
+- name: Enable and start the Fedora snapd socket
+  ansible.builtin.systemd_service:
+    name: snapd.socket
+    state: started
+    enabled: true
+  become: true
+  when: ansible_facts['distribution'] == 'Fedora'
 
 - name: Wait for snapd to finish seeding
   ansible.builtin.command: snap wait system seed.loaded
@@ -16,10 +41,17 @@
     creates: "/snap/{{ item }}/current"
   become: true
   loop: "{{ snap_packages + (['chromium'] if chromium_source == 'snap' else []) }}"
+  register: snap_install
+  until: snap_install is succeeded
+  retries: 3
+  delay: 15
 
 - name: Refresh snaps
   ansible.builtin.command: snap refresh
   become: true
   register: snap_refresh
+  until: snap_refresh is succeeded
+  retries: 3
+  delay: 15
   changed_when: "'All snaps up to date' not in snap_refresh.stderr"
   when: upgrade | bool

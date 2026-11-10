@@ -1,0 +1,14 @@
+---
+- name: Install dnf packages
+  ansible.builtin.dnf:
+    name: "{{ dnf_packages | difference(dnf_packages_exclude) }}"
+    state: present
+    use_backend: dnf5
+  become: true
+
+- name: Expose Chromium under its upstream name
+  ansible.builtin.file:
+    src: /usr/bin/chromium-browser
+    dest: "{{ local_bin }}/chromium"
+    state: link
+  when: "'/usr/bin/chromium-browser' is exists"

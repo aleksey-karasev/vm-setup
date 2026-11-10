@@ -1,7 +1,7 @@
 ---
 - name: Install or update Nerd Fonts
   vars:
-    nerd_fonts_dir: "{{ home }}/.local/share/fonts/NerdFonts"
+    nerd_fonts_dir: "{{ home }}/{{ 'Library/Fonts' if ansible_facts['os_family'] == 'Darwin' else '.local/share/fonts' }}/NerdFonts"
     nerd_fonts_release: "{{ nerd_fonts_latest.location | basename }}"
   block:
     - name: Look up the latest Nerd Fonts release
@@ -41,4 +41,6 @@
     - name: Rebuild the font cache
       ansible.builtin.command: fc-cache -f
       changed_when: true
-      when: nerd_fonts_recorded is changed
+      when:
+        - nerd_fonts_recorded is changed
+        - ansible_facts['os_family'] != 'Darwin'

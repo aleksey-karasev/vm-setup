@@ -1,4 +1,53 @@
 ---
+- name: Configure macOS shell paths
+  ansible.builtin.blockinfile:
+    path: "{{ home }}/{{ item }}"
+    marker: "# {mark} dev tools PATH (managed by vm-setup)"
+    block: |
+      eval "$({{ (homebrew_prefix ~ '/bin/brew') | quote }} shellenv)"
+      export PNPM_HOME={{ pnpm_home | quote }}
+      export PATH="$HOME/.local/bin:$PNPM_HOME/bin:{{ homebrew_prefix }}/opt/libpq/bin:$PATH"
+    create: true
+    mode: "0644"
+  loop: [.zprofile, .zshrc, .bash_profile]
+  when: ansible_facts['os_family'] == 'Darwin'
+  tags: [always]
+
+- name: Load bash configuration in macOS login shells
+  ansible.builtin.blockinfile:
+    path: "{{ home }}/.bash_profile"
+    marker: "# {mark} bashrc (managed by vm-setup)"
+    block: '[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"'
+    create: true
+    mode: "0644"
+  when: ansible_facts['os_family'] == 'Darwin'
+  tags: [always]
+
+- name: Keep a long zsh history shared by all terminals
+  ansible.builtin.blockinfile:
+    path: "{{ home }}/.zshrc"
+    marker: "# {mark} history (managed by vm-setup)"
+    block: |
+      HISTFILE="$HOME/.zsh_history"
+      HISTSIZE=100000
+      SAVEHIST=100000
+      setopt APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE
+    create: true
+    mode: "0644"
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: Enable fzf key bindings in zsh
+  ansible.builtin.blockinfile:
+    path: "{{ home }}/.zshrc"
+    marker: "# {mark} fzf (managed by vm-setup)"
+    block: |
+      if command -v fzf >/dev/null 2>&1; then
+        source <(fzf --zsh)
+      fi
+    create: true
+    mode: "0644"
+  when: ansible_facts['os_family'] == 'Darwin'
+
 - name: Keep a long bash history shared by all terminals
   ansible.builtin.lineinfile:
     path: "{{ home }}/.bashrc"
@@ -29,4 +78,4 @@
   ansible.builtin.shell: git config --global --get filter.lfs.process || git lfs install --skip-repo
   register: git_lfs_install
   changed_when: "'Git LFS initialized' in git_lfs_install.stdout"
-  when: "'/usr/bin/git-lfs' is exists"
+  when: "(homebrew_prefix ~ '/bin/git-lfs' if ansible_facts['os_family'] == 'Darwin' else '/usr/bin/git-lfs') is exists"
