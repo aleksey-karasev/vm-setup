@@ -28,6 +28,34 @@ jobs:
           ansible-playbook --syntax-check local.yml
           python tests/test_distributions.py
 
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      VM_SETUP_REPO: ${{ github.workspace }}
+      VM_SETUP_REF: ${{ github.sha }}
+      EXTRA_VARS: '{"brew_packages": ["fd", "bat", "fzf", "git-lfs", "libpq"], "brew_casks": []}'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: python -m pip install ansible-core
+      - name: Offline regression tests on macOS
+        run: python tests/test_distributions.py
+      - name: Install macOS packages and shell configuration
+        run: ./bootstrap.sh --tags brew,shell,gh,starship,fonts -e "$EXTRA_VARS"
+      - name: Second run changes nothing
+        run: |
+          ./bootstrap.sh --tags brew,shell,gh,starship,fonts -e "$EXTRA_VARS" | tee second-run.log
+          grep -q 'changed=0 ' second-run.log
+      - name: Check the macOS shell and installed tools
+        run: |
+          zsh -lic 'set -e; for tool in fd bat fzf psql gh starship vm-setup; do command -v "$tool"; done; [[ "$HISTSIZE" = 100000 ]]; whence -w fzf-history-widget; [[ "$STARSHIP_SHELL" = zsh ]]'
+          bash -lic 'set -e; declare -F starship_precmd; declare -F __fzf_history__; [[ "$HISTSIZE" = 100000 ]]; git config --global --get filter.lfs.process'
+          test -f "$HOME/Library/Fonts/NerdFonts/JetBrainsMono/.release"
+          diff files/starship.toml "$HOME/.config/starship.toml"
+
   container:
     name: ${{ matrix.image }}
     runs-on: ubuntu-24.04

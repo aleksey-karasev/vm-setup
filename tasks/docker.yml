@@ -1,4 +1,38 @@
 ---
+- name: Install Docker and Colima on macOS
+  ansible.builtin.import_tasks: homebrew.yml
+  vars:
+    homebrew_names: [docker, docker-buildx, docker-compose, colima]
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: Configure Docker on macOS
+  when: ansible_facts['os_family'] == 'Darwin'
+  block:
+    - name: Create the Docker CLI plugin directory
+      ansible.builtin.file:
+        path: "{{ home }}/.docker/cli-plugins"
+        state: directory
+        mode: "0755"
+
+    - name: Expose Docker CLI plugins
+      ansible.builtin.file:
+        src: "{{ homebrew_prefix }}/lib/docker/cli-plugins/docker-{{ item }}"
+        dest: "{{ home }}/.docker/cli-plugins/docker-{{ item }}"
+        state: link
+      loop: [buildx, compose]
+
+    - name: Check Colima status
+      ansible.builtin.command: colima status
+      register: colima_status
+      changed_when: false
+      failed_when: colima_status.rc not in [0, 1]
+      check_mode: false
+
+    - name: Start Colima
+      ansible.builtin.command: colima start
+      when: colima_status.rc != 0
+      changed_when: true
+
 - name: Install Docker Engine from Docker's apt repository
   when: ansible_facts['os_family'] == 'Debian'
   block:
@@ -112,4 +146,6 @@
     groups: docker
     append: true
   become: true
-  when: username != 'root'
+  when:
+    - username != 'root'
+    - ansible_facts['os_family'] != 'Darwin'

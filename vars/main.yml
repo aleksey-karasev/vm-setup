@@ -106,6 +106,44 @@ dnf_packages:
 
 dnf_packages_exclude: []
 
+brew_packages:
+  - ffmpeg
+  - pandoc
+  - texlive
+  - graphviz
+  - ripgrep
+  - duf
+  - fd
+  - bat
+  - eza
+  - fzf
+  - jq
+  - tree
+  - hyperfine
+  - tmux
+  - sqlite
+  - libpq
+  - git-lfs
+  - sevenzip
+  - wget
+  - rsync
+  - cmake
+  - pkgconf
+  - bash-completion@2
+  - btop
+  - procs
+  - dust
+
+brew_packages_exclude: []
+
+# Chromium's Homebrew cask is disabled; use its maintained ungoogled build.
+brew_casks:
+  - inkscape
+  - drawio
+  - ungoogled-chromium
+
+brew_casks_exclude: []
+
 uv_python_versions: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
 uv_tools:

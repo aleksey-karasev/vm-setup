@@ -1,6 +1,6 @@
 # vm-setup
 
-Turns a clean Ubuntu, Debian, Arch Linux or Fedora machine into a ready dev VM with one
+Turns a clean Ubuntu, Debian, Arch Linux, Fedora or macOS machine into a ready dev environment with one
 command, and upgrades everything each time it is run again. Ansible runs on the
 machine itself through `ansible-pull`, so there is no control node.
 
@@ -21,6 +21,13 @@ The script installs `ansible-core` and `git`, clones this repo to
 if one is needed. Log out and back in afterwards to get the new `PATH` and the
 `docker` group. Without curl, `wget -qO-` does the same.
 
+On macOS, run as your normal user. Bootstrap finds Homebrew under `/opt/homebrew`
+(Apple Silicon) or `/usr/local` (Intel), or uses the `brew` already on `PATH`.
+If missing, it installs Homebrew with the official installer, which may ask for
+your administrator password and install Xcode Command Line Tools. Ansible and
+Git then come from Homebrew's `ansible` and `git` formulae. Homebrew packages run
+without sudo. Open a new terminal afterwards to load the shell configuration.
+
 ## Update
 
 ```bash
@@ -33,6 +40,7 @@ tool to the newest version. Arguments go to `ansible-pull`:
 ```bash
 vm-setup --tags uv,duckdb      # only some components
 vm-setup --skip-tags apt,snap  # pacman on Arch; dnf on Fedora
+vm-setup --skip-tags brew      # skip the macOS package and application lists
 vm-setup -e upgrade=false      # install what is missing, upgrade nothing
 ```
 
@@ -53,13 +61,14 @@ fail the play; failures are not treated as successful no-ops.
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
-| `docker` | Docker Engine, buildx and compose plugins | Docker's apt/RPM repository (Arch: pacman) |
-| `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman; Fedora: dnf) |
+| `brew` | on macOS, command-line equivalents of the Linux package lists; Inkscape, draw.io and Ungoogled Chromium applications | Homebrew formulae and casks |
+| `docker` | Docker Engine, buildx and compose plugins (macOS: Docker CLI and Colima) | Docker's apt/RPM repository (Arch: pacman; macOS: Homebrew) |
+| `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman; Fedora: dnf; macOS: Homebrew) |
 | `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` | uv installer |
 | `pnpm` | pnpm, Node.js | pnpm installer |
-| `rtk`, `rclone`, `duckdb`, `lazydocker` | rtk, rclone, DuckDB CLI, lazydocker | each tool's installer |
-| `starship` | starship, its config and bash init | starship installer, `files/starship.toml` |
-| `shell` | 100k-line bash history shared by all terminals, fzf key bindings in bash, Git LFS in `~/.gitconfig` | `.bashrc` lines and blocks, `git lfs install` |
+| `rtk`, `rclone`, `duckdb`, `lazydocker` | rtk, rclone, DuckDB CLI, lazydocker | each tool's installer (macOS: rclone and lazydocker from Homebrew) |
+| `starship` | starship, its config and bash init; zsh init on macOS | starship installer, `files/starship.toml` |
+| `shell` | 100k-line shared history and fzf key bindings in bash (also zsh on macOS), Git LFS in `~/.gitconfig` | shell configuration, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
 | `nvidia` | driver, CUDA toolkit, container toolkit, nvtop (opt-in) | NVIDIA's apt/RPM repositories (Arch: pacman) |
 
@@ -78,6 +87,27 @@ the `/snap` link. The other tools in the `snap` row use native Fedora packages.
 The `dnf` tag also upgrades installed RPM packages unless `upgrade=false`.
 Fedora's `chromium-browser` is exposed as `~/.local/bin/chromium`.
 
+macOS uses Homebrew formulae for CLI packages, including `texlive`, `libpq`
+(PostgreSQL client tools), `sevenzip` (`7zz`), and `gnu-tar` for font extraction.
+Compiler tools come from Xcode Command Line Tools. The `brew` tag installs and
+upgrades the configured formulae and casks; component tags such as `gh`, `docker`,
+`rclone` and `lazydocker` manage their own formulae. With `upgrade=false`, installed
+packages are left alone and Homebrew metadata is not refreshed.
+Homebrew's [Chromium cask is disabled](https://formulae.brew.sh/cask/chromium),
+so macOS installs [Ungoogled Chromium](https://formulae.brew.sh/cask/ungoogled-chromium)
+and exposes its executable as `chromium`.
+
+The macOS `docker` tag installs Docker CLI, buildx, compose and
+[Colima](https://github.com/abiosoft/colima), starts Colima's default Linux VM,
+and makes the CLI plugins available in `~/.docker/cli-plugins`. Colima selects its
+Docker context when starting; after restarting macOS, run `colima start` or
+`vm-setup --tags docker` to start it again. No Docker group is needed.
+
+macOS configures both zsh and bash, including login-shell paths for Homebrew,
+`~/.local/bin`, pnpm in `~/Library/pnpm`, and Homebrew's `libpq` tools. Starship
+installs into `~/.local/bin` without sudo. Nerd Fonts install into
+`~/Library/Fonts/NerdFonts`; macOS discovers them without `fc-cache`.
+
 On Arch, TeX Live is `texlive-meta` and `texlive-lang`, without the 3 GB of
 `texlive-doc`. Arch does not support partial upgrades, so the system is
 upgraded before pacman installs anything, also when only `docker`, `gh` or
@@ -94,10 +124,13 @@ To change one machine only, override values in `~/.config/vm-setup/vars.yml`:
 apt_packages_exclude: [texlive-full]
 pacman_packages_exclude: [texlive-meta, texlive-lang]
 dnf_packages_exclude: [texlive-scheme-full]
+brew_packages_exclude: [texlive]
+brew_casks_exclude: [ungoogled-chromium]
 nerd_fonts: [JetBrainsMono, FiraCode]
 ```
 
-`--nvidia` and `--no-nvidia` are remembered in that file. When enabled:
+`--nvidia` and `--no-nvidia` are remembered in that file. NVIDIA tasks are skipped
+on macOS, including when an existing machine override enables them. On Linux, when enabled:
 
 - the `nvidia-open` driver is installed (reboot afterwards), except under WSL2,
   where the Windows driver is used
@@ -132,7 +165,10 @@ terminal and editor theme settings are managed separately.
 
 Ubuntu 24.04, Ubuntu 26.04, Debian 13, Arch Linux and Fedora 44, on a VM or under WSL2
 with `systemd=true` in `/etc/wsl.conf` (snaps need systemd).
-The full default installation requires x86_64: draw.io's Snap is unavailable
+macOS uses Homebrew on Apple Silicon (`arm64`) and Intel (`x86_64`); the macOS
+version must meet [Homebrew's requirements](https://docs.brew.sh/Installation)
+and those of the selected packages. Intel bottle availability varies by package.
+The full default Linux installation requires x86_64: draw.io's Snap is unavailable
 for ARM64. Fedora Atomic variants such as Silverblue are not supported.
 
 On Ubuntu 26.04 root tasks run through `sudo.ws`, because Ansible cannot read
@@ -158,6 +194,10 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
   tool ([tests/check.sh](tests/check.sh)).
 - The hosted Ubuntu 24.04 VM does the same without texlive-full, and builds
   the NVIDIA driver.
+- The hosted macOS 15 runner executes the offline regression suite and installs
+  a small Homebrew package set, GitHub CLI, shell configuration, Starship and fonts.
+  It checks an unchanged rerun and both zsh and bash login shells. The full macOS
+  package list, GUI applications and Colima VM startup are not covered by this job.
 
 The Arch starting image is pinned by its SHA-256 digest in the workflow.
 Provisioning still runs `pacman -Syu` to upgrade packages from current repositories.
@@ -168,7 +208,7 @@ runner's kernel, and anything that needs a GPU. A manual run accepts extra
 
 ### Distribution regression tests
 
-On Linux with `ansible-core` installed, run:
+On Linux or macOS with `ansible-core` installed, run:
 
 ```bash
 bash -n bootstrap.sh tests/check.sh
@@ -180,7 +220,8 @@ These offline tests exercise bootstrap package-manager selection, existing
 prerequisites, sudo password handling and argument forwarding. Ansible evaluates
 the real task conditions, tags and package arguments through a recording action,
 covering Fedora exclusions, upgrades, Snap setup, NVIDIA/WSL routing, unsupported
-distributions, and the existing Ubuntu/Debian/Arch branches. CI runs these alongside
+distributions, macOS on both architectures, Homebrew exclusions and updates, Colima
+startup, macOS shell/font paths, BSD sed, and the existing Ubuntu/Debian/Arch branches. CI runs these alongside
 the real container installation and unchanged-rerun checks.
 
 Fedora setup references: [Docker RPM installation](https://docs.docker.com/engine/install/fedora/),

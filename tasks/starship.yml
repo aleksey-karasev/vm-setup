@@ -3,9 +3,9 @@
   ansible.builtin.import_tasks: tool.yml
   vars:
     tool_name: starship
-    tool_bin: /usr/local/bin/starship
-    tool_install: curl -sS https://starship.rs/install.sh | sh -s -- -y
-    tool_become: true
+    tool_bin: "{{ local_bin ~ '/starship' if ansible_facts['os_family'] == 'Darwin' else '/usr/local/bin/starship' }}"
+    tool_install: "curl -sS https://starship.rs/install.sh | sh -s -- -y --bin-dir {{ (local_bin if ansible_facts['os_family'] == 'Darwin' else '/usr/local/bin') | quote }}"
+    tool_become: "{{ ansible_facts['os_family'] != 'Darwin' }}"
 
 - name: Create ~/.config
   ansible.builtin.file:
@@ -26,3 +26,12 @@
     block: eval "$(starship init bash)"
     create: true
     mode: "0644"
+
+- name: Enable starship in zsh
+  ansible.builtin.blockinfile:
+    path: "{{ home }}/.zshrc"
+    marker: "# {mark} starship (managed by vm-setup)"
+    block: eval "$(starship init zsh)"
+    create: true
+    mode: "0644"
+  when: ansible_facts['os_family'] == 'Darwin'

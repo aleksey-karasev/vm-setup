@@ -1,4 +1,10 @@
 ---
+- name: Install GitHub CLI on macOS
+  ansible.builtin.import_tasks: homebrew.yml
+  vars:
+    homebrew_names: [gh]
+  when: ansible_facts['os_family'] == 'Darwin'
+
 - name: Install GitHub CLI from GitHub's apt repository
   when: ansible_facts['os_family'] == 'Debian'
   block:

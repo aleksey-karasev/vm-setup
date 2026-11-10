@@ -1,5 +1,5 @@
 ---
-- name: Prepare dev VM
+- name: Prepare dev machine
   hosts: localhost
   connection: local
   vars_files:
@@ -8,14 +8,16 @@
     home: "{{ lookup('ansible.builtin.env', 'HOME') }}"
     username: "{{ ansible_facts['user_id'] }}"
     local_bin: "{{ home }}/.local/bin"
-    pnpm_home: "{{ home }}/.local/share/pnpm"
+    pnpm_home: "{{ home }}/{{ 'Library/pnpm' if ansible_facts['os_family'] == 'Darwin' else '.local/share/pnpm' }}"
+    homebrew_prefix: "{{ lookup('ansible.builtin.env', 'HOMEBREW_PREFIX') or ('/opt/homebrew' if ansible_facts['architecture'] == 'arm64' else '/usr/local') }}"
     machine_vars_file: "{{ home }}/.config/vm-setup/vars.yml"
     deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
     is_wsl: "{{ 'microsoft' in ansible_facts['kernel'] | lower }}"
     ansible_become_exe: "{{ 'sudo.ws' if '/usr/bin/sudo.ws' is exists else 'sudo' }}"
   environment:
     PNPM_HOME: "{{ pnpm_home }}"
-    PATH: "{{ local_bin }}:{{ pnpm_home }}/bin:{{ lookup('ansible.builtin.env', 'PATH') }}"
+    PATH: "{{ local_bin }}:{{ pnpm_home }}/bin:{{ (homebrew_prefix ~ '/bin:' ~ homebrew_prefix ~ '/sbin:' ~ homebrew_prefix ~ '/opt/libpq/bin:') if ansible_facts['os_family'] == 'Darwin' else '' }}{{ lookup('ansible.builtin.env', 'PATH') }}"
+    HOMEBREW_NO_AUTO_UPDATE: "1"
 
   tasks:
     - name: Load per-machine overrides
@@ -26,9 +28,24 @@
 
     - name: Check the distribution
       ansible.builtin.assert:
-        that: ansible_facts['distribution'] in ['Ubuntu', 'Debian', 'Archlinux', 'Fedora']
-        fail_msg: "Only Ubuntu, Debian, Arch Linux and Fedora are supported, not {{ ansible_facts['distribution'] }}."
+        that: ansible_facts['distribution'] in ['Ubuntu', 'Debian', 'Archlinux', 'Fedora', 'MacOSX']
+        fail_msg: "Only Ubuntu, Debian, Arch Linux, Fedora and macOS are supported, not {{ ansible_facts['distribution'] }}."
         quiet: true
+      tags: [always]
+
+    - name: Update Homebrew metadata
+      ansible.builtin.command: "{{ homebrew_prefix }}/bin/brew update"
+      changed_when: false
+      when:
+        - ansible_facts['os_family'] == 'Darwin'
+        - upgrade | bool
+      tags: [always]
+
+    - name: Install macOS prerequisites
+      ansible.builtin.import_tasks: tasks/homebrew.yml
+      vars:
+        homebrew_names: [ca-certificates, curl, git, gnu-tar, xz]
+      when: ansible_facts['os_family'] == 'Darwin'
       tags: [always]
 
     - name: Install prerequisites
@@ -136,6 +153,31 @@
       when: ansible_facts['distribution'] == 'Fedora'
       tags: [dnf]
 
+    - name: Homebrew formulae
+      ansible.builtin.import_tasks: tasks/homebrew.yml
+      vars:
+        homebrew_names: "{{ brew_packages | difference(brew_packages_exclude) }}"
+      when: ansible_facts['os_family'] == 'Darwin'
+      tags: [brew]
+
+    - name: Homebrew casks
+      ansible.builtin.import_tasks: tasks/homebrew.yml
+      vars:
+        homebrew_names: "{{ brew_casks | difference(brew_casks_exclude) }}"
+        homebrew_kind: cask
+      when: ansible_facts['os_family'] == 'Darwin'
+      tags: [brew]
+
+    - name: Expose Chromium on macOS
+      ansible.builtin.file:
+        src: /Applications/Chromium.app/Contents/MacOS/Chromium
+        dest: "{{ local_bin }}/chromium"
+        state: link
+      when:
+        - ansible_facts['os_family'] == 'Darwin'
+        - "'/Applications/Chromium.app/Contents/MacOS/Chromium' is exists"
+      tags: [brew]
+
     - name: Bash history, fzf key bindings and Git LFS
       ansible.builtin.import_tasks: tasks/shell.yml
       tags: [shell]
@@ -172,6 +214,7 @@
         tool_install: curl -fsSL https://rclone.org/install.sh | bash
         tool_become: true
         tool_ok_rc: [0, 3]
+      when: ansible_facts['os_family'] != 'Darwin'
       tags: [rclone]
 
     - name: DuckDB
@@ -190,6 +233,21 @@
         tool_install: >-
           cd "$(mktemp -d)" &&
           curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+      when: ansible_facts['os_family'] != 'Darwin'
+      tags: [lazydocker]
+
+    - name: Rclone on macOS
+      ansible.builtin.import_tasks: tasks/homebrew.yml
+      vars:
+        homebrew_names: [rclone]
+      when: ansible_facts['os_family'] == 'Darwin'
+      tags: [rclone]
+
+    - name: Lazydocker on macOS
+      ansible.builtin.import_tasks: tasks/homebrew.yml
+      vars:
+        homebrew_names: [lazydocker]
+      when: ansible_facts['os_family'] == 'Darwin'
       tags: [lazydocker]
 
     - name: Starship prompt
@@ -202,7 +260,9 @@
 
     - name: NVIDIA driver, CUDA and container toolkit
       ansible.builtin.import_tasks: tasks/nvidia.yml
-      when: nvidia_enabled | bool
+      when:
+        - nvidia_enabled | bool
+        - ansible_facts['os_family'] != 'Darwin'
       tags: [nvidia]
 
     - name: Upgrade installed apt packages
