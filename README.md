@@ -236,6 +236,10 @@ covering Fedora exclusions, upgrades, Snap setup, NVIDIA/WSL routing, unsupporte
 distributions, macOS on both architectures, Homebrew exclusions and updates, Colima
 startup, macOS shell/font paths, BSD sed, and the existing Ubuntu/Debian/Arch branches. CI runs these alongside
 the real container installation and unchanged-rerun checks.
+The suite also gathers real host facts before evaluating the task environment,
+and checks the resulting paths for each supported distribution and macOS
+architecture. Fact-dependent environment settings apply to the task block;
+fact gathering uses the original process environment.
 The Snap tests run the install and refresh tasks against a local fake command,
 covering transient failures, exhausted retries, unchanged reruns and
 `upgrade=false` without contacting the Snap Store.

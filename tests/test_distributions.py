@@ -188,8 +188,10 @@ class DistributionTasks(unittest.TestCase):
             "from ansible.plugins.action import ActionBase\n"
             "class ActionModule(ActionBase):\n"
             "    def run(self, tmp=None, task_vars=None):\n"
+            "        environment = {}\n"
+            "        self._compute_environment_string(raw_environment_out=environment)\n"
             "        with open(os.environ['TEST_LOG'], 'a') as output:\n"
-            "            output.write(json.dumps(dict(name=self._task.name, become=self._task.become, **self._task.args)) + '\\n')\n"
+            "            output.write(json.dumps(dict(name=self._task.name, become=self._task.become, environment=environment, **self._task.args)) + '\\n')\n"
             "        arguments = self._task.args['arguments']\n"
             "        argv = arguments.get('argv', []) if isinstance(arguments, dict) else []\n"
             "        if argv and argv[0].endswith('/brew'):\n"
@@ -244,7 +246,7 @@ class DistributionTasks(unittest.TestCase):
     def playbook(self, distro="Fedora", *, tags="dnf,snap,docker,gh,nvidia", success=True,
                  installed_rpms=(), architecture="x86_64", failure_message=None,
                  brew_installed=(), brew_outdated=None, colima_rc=0,
-                 lazygit_installed=True, **variables):
+                 lazygit_installed=True, gather_facts=False, **variables):
         facts = {
             "distribution": distro,
             "os_family": {"Fedora": "RedHat", "Archlinux": "Archlinux", "MacOSX": "Darwin"}.get(distro, "Debian"),
@@ -257,6 +259,13 @@ class DistributionTasks(unittest.TestCase):
                         machine_vars_file=str(self.base / "missing-vars.yml"),
                         is_wsl=False, upgrade=True, nvidia_enabled=True)
         settings.update(variables)
+        if gather_facts:
+            settings.pop("ansible_facts")
+            settings["ansible_python_interpreter"] = sys.executable
+            play = self.base / "local.yml"
+            data = yaml.safe_load(play.read_text())
+            data[0]["gather_facts"] = True
+            play.write_text(yaml.safe_dump(data, sort_keys=False))
         result = subprocess.run(
             ["ansible-playbook", "-i", "localhost,", str(self.base / "local.yml"),
              "--tags", tags, "-e", json.dumps(settings)],
@@ -276,6 +285,39 @@ class DistributionTasks(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0, output)
             self.assertIn(failure_message, output)
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
+
+    def test_real_fact_gathering_before_environment_is_evaluated(self):
+        calls = self.playbook(tags="all", gather_facts=True, nvidia_enabled=False)
+        environment = next(call["environment"] for call in calls
+                           if call["name"] == "Create ~/.local/bin")
+        pnpm_directory = "Library/pnpm" if sys.platform == "darwin" else ".local/share/pnpm"
+        pnpm_home = str(self.base / "home" / pnpm_directory)
+        self.assertEqual(environment["PNPM_HOME"], pnpm_home)
+        self.assertTrue(environment["PATH"].startswith(
+            f"{self.base}/home/.local/bin:{pnpm_home}/bin:"))
+        self.assertEqual(environment["HOMEBREW_NO_AUTO_UPDATE"], "1")
+
+    def test_environment_paths_on_every_distribution(self):
+        systems = [(name, "x86_64") for name in ("Ubuntu", "Debian", "Archlinux", "Fedora")]
+        systems += [("MacOSX", "arm64"), ("MacOSX", "x86_64")]
+        for distro, architecture in systems:
+            with self.subTest(distro=distro, architecture=architecture):
+                self.log.unlink(missing_ok=True)
+                calls = self.playbook(distro, tags="gh", architecture=architecture)
+                pnpm_directory = "Library/pnpm" if distro == "MacOSX" else ".local/share/pnpm"
+                pnpm_home = str(self.base / "home" / pnpm_directory)
+                search_path = f"{self.base}/home/.local/bin:{pnpm_home}/bin:"
+                if distro == "MacOSX":
+                    prefix = "/opt/homebrew" if architecture == "arm64" else "/usr/local"
+                    search_path += f"{prefix}/bin:{prefix}/sbin:{prefix}/opt/libpq/bin:"
+                expected = dict(PNPM_HOME=pnpm_home, PATH=search_path + os.environ["PATH"],
+                                HOMEBREW_NO_AUTO_UPDATE="1")
+                self.assertTrue(calls)
+                for call in calls:
+                    self.assertEqual({key: call["environment"].get(key) for key in expected},
+                                     expected, call["name"])
+                    if str(call["arguments"]).startswith("pacman "):
+                        self.assertEqual(call["environment"]["LC_ALL"], "C")
 
     def test_fedora_routing_and_native_packages(self):
         calls = self.playbook(dnf_packages_exclude=["texlive-scheme-full", "bat"])
