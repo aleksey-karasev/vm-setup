@@ -18,7 +18,7 @@ RUN if [ -e /etc/arch-release ]; then \
     && admin_group=wheel; \
     else \
     apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus libpam-systemd dbus-user-session \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y sudo \
     && rm -rf /var/lib/apt/lists/* /usr/sbin/policy-rc.d \
     && admin_group=sudo; \

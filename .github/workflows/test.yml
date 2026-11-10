@@ -27,6 +27,7 @@ jobs:
           bash -n bootstrap.sh tests/check.sh
           ansible-playbook --syntax-check local.yml
           python tests/test_distributions.py
+          python tests/test_snap.py
 
   macos:
     runs-on: macos-15
@@ -79,16 +80,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y expect
+          # Fedora's snapd uses squashfuse in containers; Docker only exposes
+          # devices that exist when the privileged container is created.
+          sudo modprobe fuse
           docker build --build-arg IMAGE=${{ matrix.image }} --build-arg USER_ID="$(id -u)" --tag machine tests
           docker run --detach --name machine --privileged --tmpfs /run:exec --tmpfs /run/lock \
             --volume /sys/kernel/security:/sys/kernel/security \
             --volume /var/lib/docker --volume /var/lib/containerd \
             --volume "$GITHUB_WORKSPACE:/repo:ro" machine
+          docker exec machine test -c /dev/fuse
           docker exec machine bash -c \
             'for i in $(seq 0 255); do [ -e /dev/loop$i ] || mknod -m 660 /dev/loop$i b 7 $i; done'
           timeout 120 bash -c \
             'until docker exec machine systemctl is-system-running 2>/dev/null | grep -Eq "running|degraded"; do sleep 2; done'
           docker exec machine systemctl --failed --no-legend
+          # Snaps using core26 require a systemd user manager and session bus.
+          docker exec machine loginctl enable-linger dev
+          docker exec machine systemctl start "user@$(id -u).service"
+          docker exec --user dev --env XDG_RUNTIME_DIR="/run/user/$(id -u)" \
+            machine systemctl --user is-active dbus.socket
 
       - name: First run installs everything
         run: tests/bootstrap.exp --nvidia -e is_wsl=true ${{ inputs.args }}
@@ -103,7 +113,9 @@ jobs:
           grep -q 'changed=0 ' second-run.log
 
       - name: Installed tools run
-        run: docker exec --user dev machine bash -li /repo/tests/check.sh --nvidia
+        run: |
+          docker exec --user dev --env XDG_RUNTIME_DIR="/run/user/$(id -u)" \
+            machine bash -li /repo/tests/check.sh --nvidia
 
       - name: Machine state after a failure
         if: failure()
@@ -111,6 +123,10 @@ jobs:
           df -h /
           docker exec machine systemctl --failed --no-pager || true
           docker exec machine journalctl --no-pager --lines 80 --priority warning || true
+          docker exec machine journalctl --no-pager --lines 200 --unit snapd.service --unit '*.mount' || true
+          docker exec machine snap changes || true
+          docker exec machine bash -c \
+            'for change in $(snap changes | awk "NR > 1 {print \$1}"); do snap tasks "$change"; done' || true
 
   vm:
     runs-on: ubuntu-24.04

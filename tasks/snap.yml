@@ -41,10 +41,17 @@
     creates: "/snap/{{ item }}/current"
   become: true
   loop: "{{ snap_packages + (['chromium'] if chromium_source == 'snap' else []) }}"
+  register: snap_install
+  until: snap_install is succeeded
+  retries: 3
+  delay: 15
 
 - name: Refresh snaps
   ansible.builtin.command: snap refresh
   become: true
   register: snap_refresh
+  until: snap_refresh is succeeded
+  retries: 3
+  delay: 15
   changed_when: "'All snaps up to date' not in snap_refresh.stderr"
   when: upgrade | bool

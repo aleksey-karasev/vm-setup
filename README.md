@@ -171,6 +171,8 @@ terminal and editor theme settings are managed separately.
 
 Ubuntu 24.04, Ubuntu 26.04, Debian 13, Arch Linux and Fedora 44, on a VM or under WSL2
 with `systemd=true` in `/etc/wsl.conf` (snaps need systemd).
+Snap installs and refreshes retry up to three times after a failure, with a
+15-second delay between attempts, to tolerate temporary Snap Store errors.
 macOS uses Homebrew on Apple Silicon (`arm64`) and Intel (`x86_64`); the macOS
 version must meet [Homebrew's requirements](https://docs.brew.sh/Installation)
 and those of the selected packages. Intel bottle availability varies by package.
@@ -198,6 +200,10 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
   clean systemd containers with a sudo password, install the full default
   set, must change nothing on a second run, and then execute every installed
   tool ([tests/check.sh](tests/check.sh)).
+  The test user has a persistent systemd user manager and session bus so that
+  snaps using `core26` can [track application processes](https://canonical.com/lxd/docs/default/reference/release-notes/6/release-notes-6.9/#strict-process-tracking-failures-with-core26-snap-base).
+  FUSE is loaded on the runner before container creation so Fedora's Snap
+  mounts can access `/dev/fuse`.
 - The hosted Ubuntu 24.04 VM does the same without texlive-full, and builds
   the NVIDIA driver.
 - The hosted macOS 15 runner executes the offline regression suite and installs
@@ -220,6 +226,7 @@ On Linux or macOS with `ansible-core` installed, run:
 bash -n bootstrap.sh tests/check.sh
 ansible-playbook --syntax-check local.yml
 python3 tests/test_distributions.py
+python3 tests/test_snap.py
 ```
 
 These offline tests exercise bootstrap package-manager selection, existing
@@ -229,6 +236,9 @@ covering Fedora exclusions, upgrades, Snap setup, NVIDIA/WSL routing, unsupporte
 distributions, macOS on both architectures, Homebrew exclusions and updates, Colima
 startup, macOS shell/font paths, BSD sed, and the existing Ubuntu/Debian/Arch branches. CI runs these alongside
 the real container installation and unchanged-rerun checks.
+The Snap tests run the install and refresh tasks against a local fake command,
+covering transient failures, exhausted retries, unchanged reruns and
+`upgrade=false` without contacting the Snap Store.
 
 Fedora setup references: [Docker RPM installation](https://docs.docker.com/engine/install/fedora/),
 [NVIDIA driver installation](https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/fedora.html),
