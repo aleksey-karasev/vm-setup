@@ -181,7 +181,7 @@
             - "'/Applications/Chromium.app/Contents/MacOS/Chromium' is exists"
           tags: [brew]
 
-        - name: Bash history, fzf key bindings and Git LFS
+        - name: Shell history, fzf, zoxide and Git LFS
           ansible.builtin.import_tasks: tasks/shell.yml
           tags: [shell]
 

@@ -13,6 +13,7 @@ apt_packages:
   - bat
   - eza
   - fzf
+  - zoxide
   - jq
   - tree
   - hyperfine
@@ -47,6 +48,7 @@ pacman_packages:
   - bat
   - eza
   - fzf
+  - zoxide
   - jq
   - tree
   - hyperfine
@@ -82,6 +84,7 @@ dnf_packages:
   - bat
   - eza
   - fzf
+  - zoxide
   - jq
   - tree
   - hyperfine
@@ -117,6 +120,7 @@ brew_packages:
   - bat
   - eza
   - fzf
+  - zoxide
   - jq
   - tree
   - hyperfine

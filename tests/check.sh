@@ -27,7 +27,7 @@ done
 check jupyter lab --version
 
 for tool in uv pnpm node rtk rclone duckdb lazydocker lazygit starship gh docker rg fd bat duf \
-            eza fzf jq tree hyperfine sqlite3 psql wget rsync gcc make cmake pkg-config \
+            eza fzf zoxide jq tree hyperfine sqlite3 psql wget rsync gcc make cmake pkg-config \
             inkscape pandoc procs dust btop chromium; do
   check "$tool" --version
 done
@@ -76,6 +76,7 @@ seq 3000 >"$history_file"
 HISTFILE="$history_file" bash -ic true 2>/dev/null
 [ "$(wc -l <"$history_file")" = 3000 ]
 check bash -ic 'declare -F __fzf_history__'
+check bash -ic 'declare -F z && declare -F zi'
 echo "+ fc-list | grep 'JetBrainsMono Nerd Font'"
 fc-list | grep 'JetBrainsMono Nerd Font' >/dev/null
 echo "All checks passed."

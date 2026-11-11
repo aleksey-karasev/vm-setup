@@ -35,7 +35,7 @@ jobs:
     env:
       VM_SETUP_REPO: ${{ github.workspace }}
       VM_SETUP_REF: ${{ github.sha }}
-      EXTRA_VARS: '{"brew_packages": ["fd", "bat", "fzf", "git-lfs", "libpq"], "brew_casks": []}'
+      EXTRA_VARS: '{"brew_packages": ["fd", "bat", "fzf", "zoxide", "git-lfs", "libpq"], "brew_casks": []}'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -52,8 +52,8 @@ jobs:
           grep -q 'changed=0 ' second-run.log
       - name: Check the macOS shell and installed tools
         run: |
-          zsh -lic 'set -e; for tool in fd bat fzf psql gh lazygit starship vm-setup; do command -v "$tool"; done; lazygit --version; [[ "$HISTSIZE" = 100000 ]]; whence -w fzf-history-widget; [[ "$STARSHIP_SHELL" = zsh ]]'
-          bash -lic 'set -e; declare -F starship_precmd; declare -F __fzf_history__; [[ "$HISTSIZE" = 100000 ]]; git config --global --get filter.lfs.process'
+          zsh -lic 'set -e; for tool in fd bat fzf zoxide psql gh lazygit starship vm-setup; do command -v "$tool"; done; lazygit --version; zoxide --version; [[ "$HISTSIZE" = 100000 ]]; whence -w fzf-history-widget; (( $+functions[z] && $+functions[zi] )); [[ "$STARSHIP_SHELL" = zsh ]]'
+          bash -lic 'set -e; declare -F starship_precmd; declare -F __fzf_history__; declare -F z; declare -F zi; [[ "$HISTSIZE" = 100000 ]]; git config --global --get filter.lfs.process'
           test -f "$HOME/Library/Fonts/NerdFonts/JetBrainsMono/.release"
           diff files/starship.toml "$HOME/.config/starship.toml"
 

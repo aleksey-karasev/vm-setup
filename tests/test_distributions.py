@@ -319,6 +319,28 @@ class DistributionTasks(unittest.TestCase):
                     if str(call["arguments"]).startswith("pacman "):
                         self.assertEqual(call["environment"]["LC_ALL"], "C")
 
+    def test_navigation_tools_on_every_distribution(self):
+        systems = [("Ubuntu", "apt", "x86_64"), ("Debian", "apt", "x86_64"),
+                   ("Archlinux", "pacman", "x86_64"), ("Fedora", "dnf", "x86_64"),
+                   ("MacOSX", "brew", "arm64"), ("MacOSX", "brew", "x86_64")]
+        for distro, tag, architecture in systems:
+            with self.subTest(distro=distro, architecture=architecture):
+                self.log.unlink(missing_ok=True)
+                calls = self.playbook(distro, tags=f"{tag},shell", architecture=architecture)
+                if tag == "brew":
+                    packages = [name for call in calls if call["name"] == "Install Homebrew packages"
+                                for name in call["arguments"]["argv"][3:]]
+                else:
+                    arguments = next(call["arguments"] for call in calls
+                                     if call["name"] == f"Install {tag} packages")
+                    packages = arguments["argv"][4:] if tag == "pacman" else arguments["name"]
+                self.assertTrue({"fzf", "zoxide"}.issubset(packages))
+                names = [call["name"] for call in calls]
+                self.assertIn("Enable fzf key bindings in bash", names)
+                self.assertIn("Enable zoxide in bash", names)
+                self.assertEqual("Enable fzf key bindings in zsh" in names, distro == "MacOSX")
+                self.assertEqual("Enable zoxide in zsh" in names, distro == "MacOSX")
+
     def test_fedora_routing_and_native_packages(self):
         calls = self.playbook(dnf_packages_exclude=["texlive-scheme-full", "bat"])
         self.assertFalse(any(call["module"].endswith((".apt", ".deb822_repository")) for call in calls))
