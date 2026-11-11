@@ -24,6 +24,7 @@ apt_packages:
   - 7zip
   - wget
   - rsync
+  - restic
   - zip
   - build-essential
   - cmake
@@ -59,6 +60,7 @@ pacman_packages:
   - 7zip
   - wget
   - rsync
+  - restic
   - zip
   - base-devel
   - cmake
@@ -95,6 +97,7 @@ dnf_packages:
   - 7zip
   - wget
   - rsync
+  - restic
   - zip
   - gcc
   - gcc-c++
@@ -131,6 +134,7 @@ brew_packages:
   - sevenzip
   - wget
   - rsync
+  - restic
   - cmake
   - pkgconf
   - bash-completion@2
