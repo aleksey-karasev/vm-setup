@@ -57,7 +57,7 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, jq, tree, hyperfine, tmux, sqlite3, psql, git-lfs, 7zip, wget, rsync, zip, build-essential, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, psql, git-lfs, 7zip, wget, rsync, zip, build-essential, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
@@ -69,12 +69,17 @@ fail the play; failures are not treated as successful no-ops.
 | `rtk`, `rclone`, `duckdb`, `lazydocker` | rtk, rclone, DuckDB CLI, lazydocker | each tool's installer (macOS: rclone and lazydocker from Homebrew) |
 | `lazygit` | Lazygit terminal UI for Git | official GitHub release on Linux; Homebrew on macOS |
 | `starship` | starship, its config and bash init; zsh init on macOS | starship installer, `files/starship.toml` |
-| `shell` | 100k-line shared history and fzf key bindings in bash (also zsh on macOS), Git LFS in `~/.gitconfig` | shell configuration, `git lfs install` |
+| `shell` | 100k-line shared history, fzf key bindings and zoxide init in bash (also zsh on macOS), Git LFS in `~/.gitconfig` | shell configuration, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
 | `nvidia` | driver, CUDA toolkit, container toolkit, nvtop (opt-in) | NVIDIA's apt/RPM repositories (Arch: pacman) |
 
 `fd` and `bat` are linked into `~/.local/bin`, because apt installs them as
 `fdfind` and `batcat`.
+
+`fzf` and `zoxide` install from each system's package manager. The `shell` tag
+enables zoxide's `z` command for directory jumping and `zi` for interactive
+selection with fzf, alongside fzf's key bindings. On Ubuntu 24.04, fzf's key
+bindings load from the packaged script because its version predates `fzf --bash`.
 
 `psql` is installed from `postgresql-client` on Ubuntu/Debian and
 `postgresql-libs` on Arch and `postgresql` on Fedora. These packages install the
