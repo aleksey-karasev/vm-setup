@@ -57,7 +57,7 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, psql, git-lfs, 7zip, wget, rsync, zip, build-essential, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, psql, git-lfs, 7zip, wget, rsync, restic, zip, build-essential, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
@@ -84,6 +84,14 @@ bindings load from the packaged script because its version predates `fzf --bash`
 `psql` is installed from `postgresql-client` on Ubuntu/Debian and
 `postgresql-libs` on Arch and `postgresql` on Fedora. These packages install the
 PostgreSQL client tools.
+
+[Restic](https://restic.readthedocs.io/en/stable/020_installation.html) installs
+from the native `restic` package on every supported system, including Homebrew
+on macOS. It follows the `apt`, `pacman`, `dnf` or `brew` tag and that package
+list's exclusion settings. Updates follow the existing package-manager upgrade
+behavior; `upgrade=false` keeps installed versions. Backup repositories,
+credentials, retention policies and schedules are configured separately per
+machine.
 
 Fedora uses DNF5, with `python3-libdnf5` installed during bootstrap. Its package
 list uses `ffmpeg-free` (Fedora's codec selection), `texlive-scheme-full`,
@@ -212,9 +220,16 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 - The hosted Ubuntu 24.04 VM does the same without texlive-full, and builds
   the NVIDIA driver.
 - The hosted macOS 15 runner executes the offline regression suite and installs
-  a small Homebrew package set, GitHub CLI, Lazygit, shell configuration, Starship and fonts.
+  a small Homebrew package set (including restic), GitHub CLI, Lazygit, shell
+  configuration, Starship and fonts.
   It checks an unchanged rerun and both zsh and bash login shells. The full macOS
   package list, GUI applications and Colima VM startup are not covered by this job.
+
+Linux and macOS also run [tests/check_restic.sh](tests/check_restic.sh): it creates
+a temporary encrypted repository, backs up two versions of sample files, checks
+all stored data, and restores and compares both snapshots. It uses only temporary
+test data and removes the repository afterwards. Run it locally with
+`bash tests/check_restic.sh` when restic is installed.
 
 The Arch starting image is pinned by its SHA-256 digest in the workflow.
 Provisioning still runs `pacman -Syu` to upgrade packages from current repositories.
@@ -228,7 +243,9 @@ runner's kernel, and anything that needs a GPU. A manual run accepts extra
 On Linux or macOS with `ansible-core` installed, run:
 
 ```bash
-bash -n bootstrap.sh tests/check.sh
+for script in bootstrap.sh tests/check.sh tests/check_restic.sh; do
+  bash -n "$script"
+done
 ansible-playbook --syntax-check local.yml
 python3 tests/test_distributions.py
 python3 tests/test_snap.py

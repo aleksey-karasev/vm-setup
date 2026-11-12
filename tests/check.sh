@@ -40,6 +40,7 @@ check git lfs version
 check git config --global --get filter.lfs.process
 check docker compose version
 check systemctl is-active docker
+bash "$(dirname "$0")/check_restic.sh"
 if [ -e /etc/arch-release ]; then
   check pacman -Q drawio-desktop
   check test -f /usr/share/bash-completion/bash_completion

@@ -24,7 +24,9 @@ jobs:
           python-version: '3.13'
       - run: python -m pip install ansible-core
       - run: |
-          bash -n bootstrap.sh tests/check.sh
+          for script in bootstrap.sh tests/check.sh tests/check_restic.sh; do
+            bash -n "$script"
+          done
           ansible-playbook --syntax-check local.yml
           python tests/test_distributions.py
           python tests/test_snap.py
@@ -35,7 +37,7 @@ jobs:
     env:
       VM_SETUP_REPO: ${{ github.workspace }}
       VM_SETUP_REF: ${{ github.sha }}
-      EXTRA_VARS: '{"brew_packages": ["fd", "bat", "fzf", "zoxide", "git-lfs", "libpq"], "brew_casks": []}'
+      EXTRA_VARS: '{"brew_packages": ["fd", "bat", "fzf", "zoxide", "git-lfs", "libpq", "restic"], "brew_casks": []}'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -56,6 +58,7 @@ jobs:
           bash -lic 'set -e; declare -F starship_precmd; declare -F __fzf_history__; declare -F z; declare -F zi; [[ "$HISTSIZE" = 100000 ]]; git config --global --get filter.lfs.process'
           test -f "$HOME/Library/Fonts/NerdFonts/JetBrainsMono/.release"
           diff files/starship.toml "$HOME/.config/starship.toml"
+          bash tests/check_restic.sh
 
   container:
     name: ${{ matrix.image }}
