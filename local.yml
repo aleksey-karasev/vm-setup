@@ -243,6 +243,10 @@
           ansible.builtin.import_tasks: tasks/lazygit.yml
           tags: [lazygit]
 
+        - name: Mike Farah's yq
+          ansible.builtin.import_tasks: tasks/yq.yml
+          tags: [yq]
+
         - name: Rclone on macOS
           ansible.builtin.import_tasks: tasks/homebrew.yml
           vars:

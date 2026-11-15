@@ -205,9 +205,13 @@ class DistributionTasks(unittest.TestCase):
             "        if self._task.args['module'] == 'ansible.builtin.uri':\n"
             "            if '/lazygit/' in arguments['url']:\n"
             "                return dict(changed=False, location='https://github.com/jesseduffield/lazygit/releases/tag/v0.55.1')\n"
+            "            if '/mikefarah/yq/' in arguments['url']:\n"
+            "                return dict(changed=False, location='https://github.com/mikefarah/yq/releases/tag/v4.48.1')\n"
             "            return dict(changed=False, location='https://github.com/ryanoasis/nerd-fonts/releases/tag/v3.4.0')\n"
             "        if isinstance(arguments, str) and arguments.endswith('/lazygit --version'):\n"
             "            return dict(changed=False, rc=0 if os.environ['TEST_LAZYGIT_INSTALLED'] == '1' else 1)\n"
+            "        if isinstance(arguments, str) and arguments.endswith('/yq --version'):\n"
+            "            return dict(changed=False, rc=0 if os.environ['TEST_YQ_INSTALLED'] == '1' else 1, stdout='yq version')\n"
             "        if argv and argv[0].endswith('/pnpm') and 'list' in argv:\n"
             "            return dict(changed=False, rc=0, stdout='[]')\n"
             "        if self._task.args['module'] == 'ansible.builtin.command' and str(self._task.args['arguments']).startswith('rpm -qa '):\n"
@@ -246,7 +250,8 @@ class DistributionTasks(unittest.TestCase):
     def playbook(self, distro="Fedora", *, tags="dnf,snap,docker,gh,nvidia", success=True,
                  installed_rpms=(), architecture="x86_64", failure_message=None,
                  brew_installed=(), brew_outdated=None, colima_rc=0,
-                 lazygit_installed=True, gather_facts=False, **variables):
+                 lazygit_installed=True, yq_installed=True,
+                 gather_facts=False, **variables):
         facts = {
             "distribution": distro,
             "os_family": {"Fedora": "RedHat", "Archlinux": "Archlinux", "MacOSX": "Darwin"}.get(distro, "Debian"),
@@ -275,6 +280,7 @@ class DistributionTasks(unittest.TestCase):
                      TEST_BREW_OUTDATED=json.dumps(brew_outdated or {}),
                      TEST_COLIMA_RC=str(colima_rc), HOMEBREW_PREFIX="",
                      TEST_LAZYGIT_INSTALLED="1" if lazygit_installed else "0",
+                     TEST_YQ_INSTALLED="1" if yq_installed else "0",
                      ANSIBLE_HOME=str(self.base / "ansible")),
             capture_output=True, text=True, timeout=120,
         )
@@ -340,6 +346,38 @@ class DistributionTasks(unittest.TestCase):
                 self.assertIn("Enable zoxide in bash", names)
                 self.assertEqual("Enable fzf key bindings in zsh" in names, distro == "MacOSX")
                 self.assertEqual("Enable zoxide in zsh" in names, distro == "MacOSX")
+
+    def test_required_cli_packages_on_every_distribution(self):
+        systems = [("Ubuntu", "apt", "sqlite3", "openssh-client", "x86_64"),
+                   ("Debian", "apt", "sqlite3", "openssh-client", "x86_64"),
+                   ("Archlinux", "pacman", "sqlite", "openssh", "x86_64"),
+                   ("Fedora", "dnf", "sqlite", "openssh-clients", "x86_64"),
+                   ("MacOSX", "brew", "sqlite", "openssh", "arm64"),
+                   ("MacOSX", "brew", "sqlite", "openssh", "x86_64")]
+        for distro, tag, sqlite, ssh, architecture in systems:
+            with self.subTest(distro=distro, architecture=architecture):
+                self.log.unlink(missing_ok=True)
+                calls = self.playbook(distro, tags=tag, architecture=architecture)
+                packages = []
+                for call in calls:
+                    if call["name"] == "Install Homebrew packages":
+                        packages += call["arguments"]["argv"][3:]
+                    elif call["name"] in (f"Install {tag} packages", "Install prerequisites"):
+                        args = call["arguments"]
+                        packages += (shlex.split(args) if isinstance(args, str)
+                                     else args.get("name", args.get("argv", [])))
+                self.assertTrue({"tmux", sqlite, ssh, "wget", "git"}.issubset(packages), packages)
+                self.assertTrue({"curl", "/usr/bin/curl"}.intersection(packages), packages)
+
+    def test_data_tools_use_uv_on_linux_and_macos(self):
+        for distro in ("Ubuntu", "MacOSX"):
+            with self.subTest(distro=distro):
+                self.log.unlink(missing_ok=True)
+                calls = self.playbook(distro, tags="uv")
+                installs = [call["arguments"] for call in calls
+                            if call["name"] == "Install uv tools"]
+                self.assertIn(f"{self.base}/home/.local/bin/uv tool install visidata", installs)
+                self.assertIn(f"{self.base}/home/.local/bin/uv tool install harlequin --python 3.13", installs)
 
     def test_fedora_routing_and_native_packages(self):
         calls = self.playbook(dnf_packages_exclude=["texlive-scheme-full", "bat"])
@@ -446,7 +484,7 @@ class DistributionTasks(unittest.TestCase):
         self.assertNotIn("Install Homebrew packages", names)
 
     def test_macos_component_tags_and_colima_start(self):
-        for tag, package in (("gh", "gh"), ("rclone", "rclone"), ("lazydocker", "lazydocker"), ("lazygit", "lazygit"), ("docker", "colima")):
+        for tag, package in (("gh", "gh"), ("rclone", "rclone"), ("lazydocker", "lazydocker"), ("lazygit", "lazygit"), ("yq", "yq"), ("docker", "colima")):
             with self.subTest(tag=tag):
                 self.log.unlink(missing_ok=True)
                 calls = self.playbook("MacOSX", tags=tag, colima_rc=1)
@@ -478,6 +516,35 @@ class DistributionTasks(unittest.TestCase):
     def test_lazygit_upgrade_false_still_installs_missing_binary(self):
         calls = self.playbook(tags="lazygit", upgrade=False, lazygit_installed=False)
         self.assertIn("Extract the Lazygit binary", [call["name"] for call in calls])
+
+    def test_yq_linux_releases_on_every_distribution(self):
+        for distro in ("Ubuntu", "Debian", "Archlinux", "Fedora"):
+            for architecture, release_arch in (("x86_64", "amd64"), ("aarch64", "arm64")):
+                with self.subTest(distro=distro, architecture=architecture):
+                    self.log.unlink(missing_ok=True)
+                    calls = self.playbook(distro, tags="yq", architecture=architecture)
+                    download = next(call for call in calls if call["name"] == "Download the yq binary")
+                    self.assertEqual(download["arguments"]["url"],
+                                     "https://github.com/mikefarah/yq/releases/download/"
+                                     f"v4.48.1/yq_linux_{release_arch}")
+                    self.assertEqual(download["arguments"]["dest"], str(self.base / "home/.local/bin/yq"))
+                    self.assertEqual(download["arguments"]["mode"], "0755")
+                    self.assertTrue(download["arguments"]["force"])
+                    self.assertFalse(download["become"])
+
+    def test_yq_upgrade_false_keeps_installed_binary(self):
+        calls = self.playbook(tags="yq", upgrade=False)
+        self.assertNotIn("Download the yq binary", [call["name"] for call in calls])
+        self.assertNotIn("Look up the latest yq release", [call["name"] for call in calls])
+
+    def test_yq_upgrade_false_still_installs_missing_binary(self):
+        calls = self.playbook(tags="yq", upgrade=False, yq_installed=False)
+        self.assertIn("Download the yq binary", [call["name"] for call in calls])
+
+    def test_yq_rejects_unsupported_architecture_before_download(self):
+        calls = self.playbook(tags="yq", architecture="ppc64le", success=False,
+                              failure_message="yq installation supports x86_64 and ARM64.")
+        self.assertFalse(any(call["module"].endswith((".uri", ".get_url")) for call in calls))
 
     def test_unsupported_distribution_fails_before_installing(self):
         self.assertEqual(self.playbook("Rocky", success=False,

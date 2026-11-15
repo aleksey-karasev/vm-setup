@@ -19,6 +19,7 @@ apt_packages:
   - hyperfine
   - tmux
   - sqlite3
+  - openssh-client
   - postgresql-client
   - git-lfs
   - 7zip
@@ -55,6 +56,7 @@ pacman_packages:
   - hyperfine
   - tmux
   - sqlite
+  - openssh
   - postgresql-libs
   - git-lfs
   - 7zip
@@ -92,6 +94,7 @@ dnf_packages:
   - hyperfine
   - tmux
   - sqlite
+  - openssh-clients
   - postgresql
   - git-lfs
   - 7zip
@@ -129,6 +132,7 @@ brew_packages:
   - hyperfine
   - tmux
   - sqlite
+  - openssh
   - libpq
   - git-lfs
   - sevenzip
@@ -178,6 +182,9 @@ uv_tools:
   - uvicorn
   - yt-dlp
   - markitdown
+  - visidata
+  # Use a managed Python with wheels for Harlequin's native dependencies.
+  - harlequin --python 3.13
 
 nerd_fonts:
   - JetBrainsMono
