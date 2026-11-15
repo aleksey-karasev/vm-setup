@@ -1,0 +1,43 @@
+---
+- name: Install yq on macOS
+  ansible.builtin.import_tasks: homebrew.yml
+  vars:
+    homebrew_names: [yq]
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: Install Mike Farah's yq from its Linux releases
+  when: ansible_facts['os_family'] != 'Darwin'
+  block:
+    - name: Check the yq architecture
+      ansible.builtin.assert:
+        that: ansible_facts['architecture'] in ['x86_64', 'aarch64', 'arm64']
+        fail_msg: yq installation supports x86_64 and ARM64.
+        quiet: true
+
+    - name: Check installed yq
+      ansible.builtin.command: "{{ local_bin }}/yq --version"
+      register: yq_installed
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install or update yq
+      when: yq_installed.rc != 0 or upgrade | bool
+      block:
+        - name: Look up the latest yq release
+          ansible.builtin.uri:
+            url: https://github.com/mikefarah/yq/releases/latest
+            follow_redirects: none
+            status_code: 302
+          register: yq_latest
+          check_mode: false
+
+        - name: Download the yq binary
+          ansible.builtin.get_url:
+            url: "https://github.com/mikefarah/yq/releases/download/{{ yq_latest.location | basename }}/yq_linux_{{ yq_arch }}"
+            dest: "{{ local_bin }}/yq"
+            mode: "0755"
+            # Compare downloaded content so an unchanged release is a no-op.
+            force: true
+          vars:
+            yq_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'amd64' }}"

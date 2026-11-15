@@ -57,17 +57,18 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, psql, git-lfs, 7zip, wget, rsync, restic, zip, build-essential, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, SSH client, psql, git-lfs, 7zip, wget, rsync, restic, zip, build-essential, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
 | `brew` | on macOS, command-line equivalents of the Linux package lists; Inkscape, draw.io and Ungoogled Chromium applications | Homebrew formulae and casks |
 | `docker` | Docker Engine, buildx and compose plugins (macOS: Docker CLI and Colima) | Docker's apt/RPM repository (Arch: pacman; macOS: Homebrew) |
 | `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman; Fedora: dnf; macOS: Homebrew) |
-| `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` | uv installer |
+| `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` including VisiData and Harlequin | uv installer and PyPI |
 | `pnpm` | pnpm, Node.js | pnpm installer |
 | `rtk`, `rclone`, `duckdb`, `lazydocker` | rtk, rclone, DuckDB CLI, lazydocker | each tool's installer (macOS: rclone and lazydocker from Homebrew) |
 | `lazygit` | Lazygit terminal UI for Git | official GitHub release on Linux; Homebrew on macOS |
+| `yq` | Mike Farah's yq YAML/JSON processor | official GitHub release on Linux; Homebrew on macOS |
 | `starship` | starship, its config and bash init; zsh init on macOS | starship installer, `files/starship.toml` |
 | `shell` | 100k-line shared history, fzf key bindings and zoxide init in bash (also zsh on macOS), Git LFS in `~/.gitconfig` | shell configuration, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
@@ -75,6 +76,21 @@ fail the play; failures are not treated as successful no-ops.
 
 `fd` and `bat` are linked into `~/.local/bin`, because apt installs them as
 `fdfind` and `batcat`.
+
+`curl` and `git` are installed as prerequisites on every supported system.
+`wget`, `tmux`, SQLite's `sqlite3` command and the OpenSSH client come from the
+native package lists: `openssh-client` on Ubuntu/Debian, `openssh-clients` on
+Fedora, and `openssh` on Arch/macOS.
+
+[VisiData](https://github.com/saulpw/visidata) (`vd` and `visidata`) and
+[Harlequin](https://github.com/tconbeer/harlequin) install as isolated uv tools
+with the `uv` tag. Harlequin uses managed Python 3.13 so its native dependencies
+can use prebuilt wheels, and includes the DuckDB and SQLite adapters.
+
+[Mike Farah's yq](https://github.com/mikefarah/yq) uses its official x86_64 or
+ARM64 Linux binary in `~/.local/bin`, and its Homebrew formula on macOS.
+Run `vm-setup --tags yq` to install or update it alone; `upgrade=false` keeps
+an existing installation.
 
 `fzf` and `zoxide` install from each system's package manager. The `shell` tag
 enables zoxide's `z` command for directory jumping and `zi` for interactive
@@ -105,7 +121,7 @@ macOS uses Homebrew formulae for CLI packages, including `texlive`, `libpq`
 (PostgreSQL client tools), `sevenzip` (`7zz`), and `gnu-tar` for font extraction.
 Compiler tools come from Xcode Command Line Tools. The `brew` tag installs and
 upgrades the configured formulae and casks; component tags such as `gh`, `docker`,
-`rclone`, `lazydocker` and `lazygit` manage their own formulae. With `upgrade=false`, installed
+`rclone`, `lazydocker`, `lazygit` and `yq` manage their own formulae. With `upgrade=false`, installed
 packages are left alone and Homebrew metadata is not refreshed.
 Homebrew's [Chromium cask is disabled](https://formulae.brew.sh/cask/chromium),
 so macOS installs [Ungoogled Chromium](https://formulae.brew.sh/cask/ungoogled-chromium)
@@ -220,8 +236,9 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 - The hosted Ubuntu 24.04 VM does the same without texlive-full, and builds
   the NVIDIA driver.
 - The hosted macOS 15 runner executes the offline regression suite and installs
-  a small Homebrew package set (including restic), GitHub CLI, Lazygit, shell
-  configuration, Starship and fonts.
+  a small Homebrew package set (including restic, tmux, SQLite and OpenSSH),
+  VisiData, Harlequin, yq, GitHub CLI, Lazygit, shell configuration,
+  Starship and fonts.
   It checks an unchanged rerun and both zsh and bash login shells. The full macOS
   package list, GUI applications and Colima VM startup are not covered by this job.
 
@@ -230,6 +247,13 @@ a temporary encrypted repository, backs up two versions of sample files, checks
 all stored data, and restores and compares both snapshots. It uses only temporary
 test data and removes the repository afterwards. Run it locally with
 `bash tests/check_restic.sh` when restic is installed.
+
+[tests/check_cli_tools.sh](tests/check_cli_tools.sh) verifies the requested CLI
+commands and exercises a SQLite database, an empty Git repository, YAML editing
+and JSON conversion with Mike Farah's yq, CSV-to-TSV conversion with VisiData,
+and a tmux session on a private socket. It runs Harlequin's bundled adapters
+against temporary SQLite and DuckDB databases, checks persistence, and opens
+the SQL editor headlessly. All test data is temporary.
 
 The Arch starting image is pinned by its SHA-256 digest in the workflow.
 Provisioning still runs `pacman -Syu` to upgrade packages from current repositories.
@@ -243,7 +267,7 @@ runner's kernel, and anything that needs a GPU. A manual run accepts extra
 On Linux or macOS with `ansible-core` installed, run:
 
 ```bash
-for script in bootstrap.sh tests/check.sh tests/check_restic.sh; do
+for script in bootstrap.sh tests/check.sh tests/check_cli_tools.sh tests/check_restic.sh; do
   bash -n "$script"
 done
 ansible-playbook --syntax-check local.yml
@@ -260,7 +284,9 @@ startup, macOS shell/font paths, BSD sed, and the existing Ubuntu/Debian/Arch br
 the real container installation and unchanged-rerun checks.
 The suite also gathers real host facts before evaluating the task environment,
 and checks the resulting paths for each supported distribution and macOS
-architecture. Fact-dependent environment settings apply to the task block;
+architecture. They also verify required CLI packages, uv data tools, yq release
+architectures, isolated component tags and `upgrade=false` for yq.
+Fact-dependent environment settings apply to the task block;
 fact gathering uses the original process environment.
 The Snap tests run the install and refresh tasks against a local fake command,
 covering transient failures, exhausted retries, unchanged reruns and
