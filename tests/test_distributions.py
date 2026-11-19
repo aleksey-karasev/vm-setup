@@ -369,7 +369,8 @@ class DistributionTasks(unittest.TestCase):
                 self.assertTrue({"tmux", sqlite, ssh, "wget", "git"}.issubset(packages), packages)
                 self.assertTrue({"curl", "/usr/bin/curl"}.intersection(packages), packages)
 
-    def test_data_tools_use_uv_on_linux_and_macos(self):
+    def test_default_uv_tools_on_linux_and_macos(self):
+        excluded_packages = {"fastapi", "polars", "polars-cli", "typer", "uvicorn"}
         for distro in ("Ubuntu", "MacOSX"):
             with self.subTest(distro=distro):
                 self.log.unlink(missing_ok=True)
@@ -378,6 +379,8 @@ class DistributionTasks(unittest.TestCase):
                             if call["name"] == "Install uv tools"]
                 self.assertIn(f"{self.base}/home/.local/bin/uv tool install visidata", installs)
                 self.assertIn(f"{self.base}/home/.local/bin/uv tool install harlequin --python 3.13", installs)
+                packages = {shlex.split(command)[3].partition("[")[0] for command in installs}
+                self.assertEqual(packages & excluded_packages, set())
 
     def test_fedora_routing_and_native_packages(self):
         calls = self.playbook(dnf_packages_exclude=["texlive-scheme-full", "bat"])

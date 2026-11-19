@@ -20,8 +20,8 @@ for py in 3.9 3.10 3.11 3.12 3.13 3.14; do
   check "python$py" --version
 done
 
-for tool in ruff ty pytest cookiecutter pre-commit crewai llmfit mlflow httpx2 hf fastapi typer \
-            ipython marimo mkdocs whisper polars rip taplo uvicorn yt-dlp markitdown; do
+for tool in ruff ty pytest cookiecutter pre-commit crewai llmfit mlflow httpx2 hf \
+            ipython marimo mkdocs whisper rip taplo yt-dlp markitdown; do
   check "$tool" --help
 done
 check jupyter lab --version
