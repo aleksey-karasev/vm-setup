@@ -37,7 +37,7 @@ jobs:
     env:
       VM_SETUP_REPO: ${{ github.workspace }}
       VM_SETUP_REF: ${{ github.sha }}
-      EXTRA_VARS: '{"brew_packages": ["fd", "bat", "fzf", "zoxide", "git-lfs", "libpq", "restic", "tmux", "sqlite", "wget", "openssh"], "brew_casks": [], "uv_python_versions": ["3.13"], "uv_tools": ["visidata", "harlequin --python 3.13"]}'
+      EXTRA_VARS: '{"brew_packages": ["fd", "bat", "fzf", "zoxide", "git-lfs", "libpq", "restic", "tmux", "sqlite", "wget", "openssh", "mtr", "fail2ban"], "brew_casks": [], "uv_python_versions": ["3.13"], "uv_tools": ["visidata", "harlequin --python 3.13"]}'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6

@@ -202,6 +202,8 @@ class DistributionTasks(unittest.TestCase):
             "            return dict(changed=False, rc=0, stdout='\\n'.join(packages), stdout_lines=packages)\n"
             "        if arguments == 'colima status':\n"
             "            return dict(changed=False, rc=int(os.environ.get('TEST_COLIMA_RC', '0')))\n"
+            "        if isinstance(arguments, dict) and arguments.get('path') == '/usr/bin/mtr':\n"
+            "            return dict(changed=False, stat=dict(executable=os.environ['TEST_MTR_INSTALLED'] == '1'))\n"
             "        if self._task.args['module'] == 'ansible.builtin.uri':\n"
             "            if '/lazygit/' in arguments['url']:\n"
             "                return dict(changed=False, location='https://github.com/jesseduffield/lazygit/releases/tag/v0.55.1')\n"
@@ -250,7 +252,7 @@ class DistributionTasks(unittest.TestCase):
     def playbook(self, distro="Fedora", *, tags="dnf,snap,docker,gh,nvidia", success=True,
                  installed_rpms=(), architecture="x86_64", failure_message=None,
                  brew_installed=(), brew_outdated=None, colima_rc=0,
-                 lazygit_installed=True, yq_installed=True,
+                 lazygit_installed=True, yq_installed=True, mtr_installed=False,
                  gather_facts=False, **variables):
         facts = {
             "distribution": distro,
@@ -281,6 +283,7 @@ class DistributionTasks(unittest.TestCase):
                      TEST_COLIMA_RC=str(colima_rc), HOMEBREW_PREFIX="",
                      TEST_LAZYGIT_INSTALLED="1" if lazygit_installed else "0",
                      TEST_YQ_INSTALLED="1" if yq_installed else "0",
+                     TEST_MTR_INSTALLED="1" if mtr_installed else "0",
                      ANSIBLE_HOME=str(self.base / "ansible")),
             capture_output=True, text=True, timeout=120,
         )
@@ -354,6 +357,12 @@ class DistributionTasks(unittest.TestCase):
                    ("Fedora", "dnf", "sqlite", "openssh-clients", "x86_64"),
                    ("MacOSX", "brew", "sqlite", "openssh", "arm64"),
                    ("MacOSX", "brew", "sqlite", "openssh", "x86_64")]
+        network_packages = {
+            "apt": {"iptables", "mtr-tiny", "ufw", "fail2ban", "net-tools"},
+            "pacman": {"mtr", "ufw", "fail2ban", "net-tools"},
+            "dnf": {"iptables-nft", "mtr", "ufw", "fail2ban-server", "net-tools"},
+            "brew": {"mtr", "fail2ban"},
+        }
         for distro, tag, sqlite, ssh, architecture in systems:
             with self.subTest(distro=distro, architecture=architecture):
                 self.log.unlink(missing_ok=True)
@@ -368,6 +377,20 @@ class DistributionTasks(unittest.TestCase):
                                      else args.get("name", args.get("argv", [])))
                 self.assertTrue({"tmux", sqlite, ssh, "wget", "git"}.issubset(packages), packages)
                 self.assertTrue({"curl", "/usr/bin/curl"}.intersection(packages), packages)
+                self.assertTrue(network_packages[tag].issubset(packages), packages)
+                if tag == "brew":
+                    self.assertFalse({"iptables", "iptables-nft", "ufw", "net-tools"}.intersection(packages), packages)
+
+    def test_preserve_existing_mtr_on_debian_and_arch(self):
+        for distro, tag, package in (("Debian", "apt", "mtr-tiny"), ("Archlinux", "pacman", "mtr")):
+            with self.subTest(distro=distro):
+                self.log.unlink(missing_ok=True)
+                calls = self.playbook(distro, tags=tag, mtr_installed=True)
+                arguments = next(call["arguments"] for call in calls
+                                 if call["name"] == f"Install {tag} packages")
+                packages = arguments["argv"][4:] if tag == "pacman" else arguments["name"]
+                self.assertIn("ufw", packages)
+                self.assertNotIn(package, packages)
 
     def test_default_uv_tools_on_linux_and_macos(self):
         excluded_packages = {"fastapi", "polars", "polars-cli", "typer", "uvicorn"}

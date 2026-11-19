@@ -20,6 +20,11 @@ apt_packages:
   - tmux
   - sqlite3
   - openssh-client
+  - iptables
+  - mtr-tiny
+  - ufw
+  - fail2ban
+  - net-tools
   - postgresql-client
   - git-lfs
   - 7zip
@@ -57,6 +62,11 @@ pacman_packages:
   - tmux
   - sqlite
   - openssh
+  # UFW's iptables dependency also accepts an installed iptables-legacy.
+  - ufw
+  - mtr
+  - fail2ban
+  - net-tools
   - postgresql-libs
   - git-lfs
   - 7zip
@@ -95,6 +105,11 @@ dnf_packages:
   - tmux
   - sqlite
   - openssh-clients
+  - iptables-nft
+  - mtr
+  - ufw
+  - fail2ban-server
+  - net-tools
   - postgresql
   - git-lfs
   - 7zip
@@ -133,6 +148,8 @@ brew_packages:
   - tmux
   - sqlite
   - openssh
+  - mtr
+  - fail2ban
   - libpq
   - git-lfs
   - sevenzip

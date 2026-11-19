@@ -136,6 +136,15 @@
             state: link
           tags: [always]
 
+        - name: Check for an existing mtr executable
+          ansible.builtin.stat:
+            path: /usr/bin/mtr
+            get_checksum: false
+            get_mime: false
+          register: mtr_binary
+          when: ansible_facts['os_family'] in ['Debian', 'Archlinux']
+          tags: [apt, pacman]
+
         - name: Apt packages
           ansible.builtin.import_tasks: tasks/apt.yml
           when: ansible_facts['os_family'] == 'Debian'

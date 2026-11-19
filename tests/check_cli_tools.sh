@@ -18,6 +18,15 @@ ssh -V
 ssh -T -F /dev/null -G localhost >"$test_directory/ssh-config"
 tmux -V
 
+if [[ "$(uname -s)" == Linux ]]; then
+  PATH="$PATH:/usr/sbin:/sbin"
+  command -v iptables
+  command -v ufw
+fi
+mtr --version
+fail2ban-client --version
+netstat -rn >/dev/null
+
 git -c init.defaultBranch=main init --quiet "$test_directory/git"
 test -z "$(git -C "$test_directory/git" status --porcelain)"
 test "$(sqlite3 "$test_directory/data.sqlite" \

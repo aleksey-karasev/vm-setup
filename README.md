@@ -57,7 +57,7 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, SSH client, psql, git-lfs, 7zip, wget, rsync, restic, zip, build-essential, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, SSH client, iptables, mtr, ufw, Fail2Ban, netstat, psql, git-lfs, 7zip, wget, rsync, restic, zip, build-essential, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
@@ -81,6 +81,15 @@ fail the play; failures are not treated as successful no-ops.
 `wget`, `tmux`, SQLite's `sqlite3` command and the OpenSSH client come from the
 native package lists: `openssh-client` on Ubuntu/Debian, `openssh-clients` on
 Fedora, and `openssh` on Arch/macOS.
+
+On Linux, `netstat` comes from `net-tools`. Ubuntu and Debian install the CLI
+version of `mtr` through `mtr-tiny`. Ubuntu, Debian and Arch keep an existing
+`mtr` variant. On Arch, `ufw` depends on `iptables` and accepts an installed
+`iptables-legacy` backend. Fedora uses `iptables-nft` and `fail2ban-server`.
+Firewall and Fail2Ban service startup follow distro package defaults. On
+macOS, Homebrew installs `mtr` and Fail2Ban, and macOS provides `netstat` and
+the native packet filter command `pfctl`. The `iptables` and `ufw` tools
+require Linux Netfilter.
 
 [VisiData](https://github.com/saulpw/visidata) (`vd` and `visidata`) and
 [Harlequin](https://github.com/tconbeer/harlequin) install as isolated uv tools
