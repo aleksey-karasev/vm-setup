@@ -1,7 +1,7 @@
 ---
 - name: Install apt packages
   ansible.builtin.apt:
-    name: "{{ (apt_packages | difference(apt_packages_exclude + mtr_packages_to_skip)) + (['chromium'] if chromium_source == 'apt' else []) }}"
+    name: "{{ (apt_packages | difference(apt_packages_exclude + mtr_packages_to_skip + rust_packages_to_skip)) + (['chromium'] if chromium_source == 'apt' else []) }}"
     state: present
     update_cache: true
     cache_valid_time: 3600
@@ -9,6 +9,8 @@
   vars:
     # An existing GTK build already provides the mtr command.
     mtr_packages_to_skip: "{{ ['mtr-tiny'] if mtr_binary.stat.executable | default(false) else [] }}"
+    # System Rustup owns the rustc and cargo command paths.
+    rust_packages_to_skip: "{{ ['rustc', 'cargo'] if rustup_binary.stat.executable | default(false) else [] }}"
 
 - name: Expose fd and bat under their upstream names
   ansible.builtin.file:

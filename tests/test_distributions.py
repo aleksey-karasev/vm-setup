@@ -204,6 +204,8 @@ class DistributionTasks(unittest.TestCase):
             "            return dict(changed=False, rc=int(os.environ.get('TEST_COLIMA_RC', '0')))\n"
             "        if isinstance(arguments, dict) and arguments.get('path') == '/usr/bin/mtr':\n"
             "            return dict(changed=False, stat=dict(executable=os.environ['TEST_MTR_INSTALLED'] == '1'))\n"
+            "        if isinstance(arguments, dict) and arguments.get('path') == '/usr/bin/rustup':\n"
+            "            return dict(changed=False, stat=dict(executable=os.environ['TEST_RUSTUP_INSTALLED'] == '1'))\n"
             "        if self._task.args['module'] == 'ansible.builtin.uri':\n"
             "            if '/lazygit/' in arguments['url']:\n"
             "                return dict(changed=False, location='https://github.com/jesseduffield/lazygit/releases/tag/v0.55.1')\n"
@@ -253,7 +255,7 @@ class DistributionTasks(unittest.TestCase):
                  installed_rpms=(), architecture="x86_64", failure_message=None,
                  brew_installed=(), brew_outdated=None, colima_rc=0,
                  lazygit_installed=True, yq_installed=True, mtr_installed=False,
-                 gather_facts=False, **variables):
+                 rustup_installed=False, gather_facts=False, **variables):
         facts = {
             "distribution": distro,
             "os_family": {"Fedora": "RedHat", "Archlinux": "Archlinux", "MacOSX": "Darwin"}.get(distro, "Debian"),
@@ -284,6 +286,7 @@ class DistributionTasks(unittest.TestCase):
                      TEST_LAZYGIT_INSTALLED="1" if lazygit_installed else "0",
                      TEST_YQ_INSTALLED="1" if yq_installed else "0",
                      TEST_MTR_INSTALLED="1" if mtr_installed else "0",
+                     TEST_RUSTUP_INSTALLED="1" if rustup_installed else "0",
                      ANSIBLE_HOME=str(self.base / "ansible")),
             capture_output=True, text=True, timeout=120,
         )
@@ -363,6 +366,12 @@ class DistributionTasks(unittest.TestCase):
             "dnf": {"iptables-nft", "mtr", "ufw", "fail2ban-server", "net-tools"},
             "brew": {"mtr", "fail2ban"},
         }
+        toolchain_packages = {
+            "apt": {"golang-go", "rustc", "cargo"},
+            "pacman": {"go", "rust"},
+            "dnf": {"golang", "rust", "cargo"},
+            "brew": {"go", "rust"},
+        }
         for distro, tag, sqlite, ssh, architecture in systems:
             with self.subTest(distro=distro, architecture=architecture):
                 self.log.unlink(missing_ok=True)
@@ -378,6 +387,7 @@ class DistributionTasks(unittest.TestCase):
                 self.assertTrue({"tmux", sqlite, ssh, "wget", "git"}.issubset(packages), packages)
                 self.assertTrue({"curl", "/usr/bin/curl"}.intersection(packages), packages)
                 self.assertTrue(network_packages[tag].issubset(packages), packages)
+                self.assertTrue(toolchain_packages[tag].issubset(packages), packages)
                 if tag == "brew":
                     self.assertFalse({"iptables", "iptables-nft", "ufw", "net-tools"}.intersection(packages), packages)
 
@@ -391,6 +401,20 @@ class DistributionTasks(unittest.TestCase):
                 packages = arguments["argv"][4:] if tag == "pacman" else arguments["name"]
                 self.assertIn("ufw", packages)
                 self.assertNotIn(package, packages)
+
+    def test_system_rustup_supplies_rust_on_apt_and_pacman(self):
+        systems = [("Ubuntu", "apt", "golang-go", {"rustc", "cargo"}),
+                   ("Debian", "apt", "golang-go", {"rustc", "cargo"}),
+                   ("Archlinux", "pacman", "go", {"rust"})]
+        for distro, tag, go_package, rust_packages in systems:
+            with self.subTest(distro=distro):
+                self.log.unlink(missing_ok=True)
+                calls = self.playbook(distro, tags=tag, rustup_installed=True)
+                arguments = next(call["arguments"] for call in calls
+                                 if call["name"] == f"Install {tag} packages")
+                packages = arguments["argv"][4:] if tag == "pacman" else arguments["name"]
+                self.assertIn(go_package, packages)
+                self.assertTrue(rust_packages.isdisjoint(packages), packages)
 
     def test_default_uv_tools_on_linux_and_macos(self):
         excluded_packages = {"fastapi", "polars", "polars-cli", "typer", "uvicorn"}

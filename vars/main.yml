@@ -33,6 +33,9 @@ apt_packages:
   - restic
   - zip
   - build-essential
+  - golang-go
+  - rustc
+  - cargo
   - cmake
   - pkg-config
 
@@ -75,6 +78,8 @@ pacman_packages:
   - restic
   - zip
   - base-devel
+  - go
+  - rust
   - cmake
   - pkgconf
   - bash-completion
@@ -120,6 +125,9 @@ dnf_packages:
   - gcc
   - gcc-c++
   - make
+  - golang
+  - rust
+  - cargo
   - cmake
   - pkgconf-pkg-config
   - bash-completion
@@ -156,6 +164,8 @@ brew_packages:
   - wget
   - rsync
   - restic
+  - go
+  - rust
   - cmake
   - pkgconf
   - bash-completion@2

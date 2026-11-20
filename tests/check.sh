@@ -40,6 +40,7 @@ check git lfs version
 check git config --global --get filter.lfs.process
 check docker compose version
 check systemctl is-active docker
+PATH=/usr/bin:/bin bash "$(dirname "$0")/check_language_tools.sh"
 bash "$(dirname "$0")/check_cli_tools.sh"
 bash "$(dirname "$0")/check_restic.sh"
 if [ -e /etc/arch-release ]; then

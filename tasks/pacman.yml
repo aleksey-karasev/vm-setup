@@ -11,4 +11,6 @@
   vars:
     # mtr and mtr-gtk provide the same command and conflict.
     mtr_packages_to_skip: "{{ ['mtr'] if mtr_binary.stat.executable | default(false) else [] }}"
-    pacman_packages_to_install: "{{ pacman_packages | difference(pacman_packages_exclude + mtr_packages_to_skip) }}"
+    # System Rustup owns the rustc and cargo command paths.
+    rust_packages_to_skip: "{{ ['rust'] if rustup_binary.stat.executable | default(false) else [] }}"
+    pacman_packages_to_install: "{{ pacman_packages | difference(pacman_packages_exclude + mtr_packages_to_skip + rust_packages_to_skip) }}"
