@@ -57,7 +57,7 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, SSH client, psql, git-lfs, 7zip, wget, rsync, restic, zip, build-essential, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, sqlite3, SSH client, iptables, mtr, ufw, Fail2Ban, netstat, psql, git-lfs, 7zip, wget, rsync, restic, zip, build-essential, Go, rustc, Cargo, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
@@ -81,6 +81,21 @@ fail the play; failures are not treated as successful no-ops.
 `wget`, `tmux`, SQLite's `sqlite3` command and the OpenSSH client come from the
 native package lists: `openssh-client` on Ubuntu/Debian, `openssh-clients` on
 Fedora, and `openssh` on Arch/macOS.
+
+Go and Rust follow the `apt`, `pacman`, `dnf` or `brew` tag for the system.
+Go includes [module management](https://go.dev/doc/modules/gomod-ref) through
+commands such as `go mod` and `go get`. The `rust` package on Arch and macOS
+includes both `rustc` and `cargo`. On Ubuntu, Debian and Arch, a system-installed
+`rustup` supplies those commands and manages its own toolchains.
+
+On Linux, `netstat` comes from `net-tools`. Ubuntu and Debian install the CLI
+version of `mtr` through `mtr-tiny`. Ubuntu, Debian and Arch keep an existing
+`mtr` variant. On Arch, `ufw` depends on `iptables` and accepts an installed
+`iptables-legacy` backend. Fedora uses `iptables-nft` and `fail2ban-server`.
+Firewall and Fail2Ban service startup follow distro package defaults. On
+macOS, Homebrew installs `mtr` and Fail2Ban, and macOS provides `netstat` and
+the native packet filter command `pfctl`. The `iptables` and `ufw` tools
+require Linux Netfilter.
 
 [VisiData](https://github.com/saulpw/visidata) (`vd` and `visidata`) and
 [Harlequin](https://github.com/tconbeer/harlequin) install as isolated uv tools
@@ -237,7 +252,7 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
   the NVIDIA driver.
 - The hosted macOS 15 runner executes the offline regression suite and installs
   a small Homebrew package set (including restic, tmux, SQLite and OpenSSH),
-  VisiData, Harlequin, yq, GitHub CLI, Lazygit, shell configuration,
+  Go, Rust, VisiData, Harlequin, yq, GitHub CLI, Lazygit, shell configuration,
   Starship and fonts.
   It checks an unchanged rerun and both zsh and bash login shells. The full macOS
   package list, GUI applications and Colima VM startup are not covered by this job.
@@ -255,6 +270,11 @@ and a tmux session on a private socket. It runs Harlequin's bundled adapters
 against temporary SQLite and DuckDB databases, checks persistence, and opens
 the SQL editor headlessly. All test data is temporary.
 
+[tests/check_language_tools.sh](tests/check_language_tools.sh) creates a Go
+module, installs and runs its executable, then builds and runs a Cargo project
+offline. Run it with `bash tests/check_language_tools.sh` after installing the
+toolchains.
+
 The Arch starting image is pinned by its SHA-256 digest in the workflow.
 Provisioning still runs `pacman -Syu` to upgrade packages from current repositories.
 
@@ -267,7 +287,7 @@ runner's kernel, and anything that needs a GPU. A manual run accepts extra
 On Linux or macOS with `ansible-core` installed, run:
 
 ```bash
-for script in bootstrap.sh tests/check.sh tests/check_cli_tools.sh tests/check_restic.sh; do
+for script in bootstrap.sh tests/check*.sh; do
   bash -n "$script"
 done
 ansible-playbook --syntax-check local.yml
