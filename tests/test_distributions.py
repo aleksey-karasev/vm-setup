@@ -384,7 +384,7 @@ class DistributionTasks(unittest.TestCase):
                         args = call["arguments"]
                         packages += (shlex.split(args) if isinstance(args, str)
                                      else args.get("name", args.get("argv", [])))
-                self.assertTrue({"tmux", sqlite, ssh, "wget", "git"}.issubset(packages), packages)
+                self.assertTrue({"tmux", "micro", sqlite, ssh, "wget", "git"}.issubset(packages), packages)
                 self.assertTrue({"curl", "/usr/bin/curl"}.intersection(packages), packages)
                 self.assertTrue(network_packages[tag].issubset(packages), packages)
                 self.assertTrue(toolchain_packages[tag].issubset(packages), packages)
