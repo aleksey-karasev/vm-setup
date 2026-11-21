@@ -10,7 +10,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for tool in curl wget git sqlite3 yq vd visidata harlequin; do
+for tool in curl wget git sqlite3 micro yq vd visidata harlequin; do
   echo "+ $tool --version"
   "$tool" --version >/dev/null
 done
