@@ -10,13 +10,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for tool in curl wget git sqlite3 micro yq vd visidata harlequin; do
+for tool in curl wget git delta shellcheck sqlite3 micro yq vd visidata harlequin; do
   echo "+ $tool --version"
   "$tool" --version >/dev/null
 done
 ssh -V
 ssh -T -F /dev/null -G localhost >"$test_directory/ssh-config"
 tmux -V
+dig -v
+lsof -nP -a -p "$$" -d cwd >/dev/null
 
 if [[ "$(uname -s)" == Linux ]]; then
   PATH="$PATH:/usr/sbin:/sbin"
