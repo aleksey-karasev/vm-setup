@@ -244,9 +244,8 @@ ansible-playbook local.yml --ask-become-pass
 
 Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 
-- `ubuntu:24.04`, `ubuntu:26.04`, `debian:13`, `archlinux:base-20261108.0.623074`
-  and `fedora:44` boot as
-  clean systemd containers with a sudo password, install the full default
+- `ubuntu:24.04`, `ubuntu:26.04`, `debian:13`, `archlinux:latest` and `fedora:44`
+  boot as clean systemd containers with a sudo password, install the full default
   set, must change nothing on a second run, and then execute every installed
   tool ([tests/check.sh](tests/check.sh)).
   The test user has a persistent systemd user manager and session bus so that
@@ -281,8 +280,8 @@ module, installs and runs its executable, then builds and runs a Cargo project
 offline. Run it with `bash tests/check_language_tools.sh` after installing the
 toolchains.
 
-The Arch starting image is pinned by its SHA-256 digest in the workflow.
-Provisioning still runs `pacman -Syu` to upgrade packages from current repositories.
+The workflow pulls the current base images on each run.
+Arch provisioning runs `pacman -Syu` to upgrade packages from current repositories.
 
 Not covered: the driver on 26.04, Debian, Arch and Fedora, since containers share the
 runner's kernel, and anything that needs a GPU. A manual run accepts extra

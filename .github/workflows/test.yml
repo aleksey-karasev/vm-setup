@@ -73,7 +73,7 @@ jobs:
           - "ubuntu:24.04"
           - "ubuntu:26.04"
           - "debian:13"
-          - "archlinux:base-20261108.0.623074@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899"
+          - "archlinux:latest"
           - "fedora:44"
     steps:
       - uses: actions/checkout@v5
@@ -88,7 +88,8 @@ jobs:
           # Fedora's snapd uses squashfuse in containers; Docker only exposes
           # devices that exist when the privileged container is created.
           sudo modprobe fuse
-          docker build --build-arg IMAGE=${{ matrix.image }} --build-arg USER_ID="$(id -u)" --tag machine tests
+          docker build --pull --build-arg IMAGE=${{ matrix.image }} \
+            --build-arg USER_ID="$(id -u)" --tag machine tests
           docker run --detach --name machine --privileged --tmpfs /run:exec --tmpfs /run/lock \
             --volume /sys/kernel/security:/sys/kernel/security \
             --volume /var/lib/docker --volume /var/lib/containerd \
