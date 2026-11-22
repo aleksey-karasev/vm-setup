@@ -55,3 +55,23 @@
   delay: 15
   changed_when: "'All snaps up to date' not in snap_refresh.stderr"
   when: upgrade | bool
+
+- name: Configure the btop snap
+  when:
+    - "'btop' in snap_packages"
+    - not ansible_check_mode
+  block:
+    # The snap launcher can migrate the config to shared user data.
+    - name: Find the btop snap configuration directory
+      ansible.builtin.command:
+        argv: [snap, run, --shell, btop]
+        chdir: "{{ home }}"
+        stdin: |
+          printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/btop"
+      register: btop_snap_config_dir
+      changed_when: false
+
+    - name: Apply btop settings inside the snap's user data directory
+      ansible.builtin.import_tasks: btop.yml
+      vars:
+        btop_config_dir: "{{ btop_snap_config_dir.stdout }}"

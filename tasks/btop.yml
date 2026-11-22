@@ -1,0 +1,13 @@
+---
+# btop uses its own defaults for settings absent from the config file.
+- name: Set btop preferences
+  ansible.builtin.lineinfile:
+    path: "{{ btop_config_dir }}/btop.conf"
+    regexp: '^\s*{{ item.key }}\s*='
+    line: "{{ item.key }} = {{ item.value }}"
+    create: true
+  loop:
+    - { key: update_ms, value: "100" }
+    - { key: color_theme, value: '"dracula"' }
+    - { key: cpu_bottom, value: "true" }
+    - { key: proc_left, value: "true" }
