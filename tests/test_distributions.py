@@ -361,9 +361,9 @@ class DistributionTasks(unittest.TestCase):
                    ("MacOSX", "brew", "sqlite", "openssh", "arm64"),
                    ("MacOSX", "brew", "sqlite", "openssh", "x86_64")]
         network_packages = {
-            "apt": {"iptables", "mtr-tiny", "ufw", "fail2ban", "net-tools"},
-            "pacman": {"mtr", "ufw", "fail2ban", "net-tools"},
-            "dnf": {"iptables-nft", "mtr", "ufw", "fail2ban-server", "net-tools"},
+            "apt": {"bind9-dnsutils", "lsof", "iptables", "mtr-tiny", "ufw", "fail2ban", "net-tools"},
+            "pacman": {"bind", "lsof", "mtr", "ufw", "fail2ban", "net-tools"},
+            "dnf": {"bind-utils", "lsof", "iptables-nft", "mtr", "ufw", "fail2ban-server", "net-tools"},
             "brew": {"mtr", "fail2ban"},
         }
         toolchain_packages = {
@@ -384,7 +384,9 @@ class DistributionTasks(unittest.TestCase):
                         args = call["arguments"]
                         packages += (shlex.split(args) if isinstance(args, str)
                                      else args.get("name", args.get("argv", [])))
-                self.assertTrue({"tmux", "micro", sqlite, ssh, "wget", "git"}.issubset(packages), packages)
+                shellcheck_package = "ShellCheck" if tag == "dnf" else "shellcheck"
+                required = {"tmux", "micro", sqlite, ssh, "wget", "git", "git-delta", shellcheck_package}
+                self.assertTrue(required.issubset(packages), packages)
                 self.assertTrue({"curl", "/usr/bin/curl"}.intersection(packages), packages)
                 self.assertTrue(network_packages[tag].issubset(packages), packages)
                 self.assertTrue(toolchain_packages[tag].issubset(packages), packages)

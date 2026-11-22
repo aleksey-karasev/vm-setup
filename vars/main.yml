@@ -21,6 +21,8 @@ apt_packages:
   - micro
   - sqlite3
   - openssh-client
+  - bind9-dnsutils
+  - lsof
   - iptables
   - mtr-tiny
   - ufw
@@ -28,6 +30,8 @@ apt_packages:
   - net-tools
   - postgresql-client
   - git-lfs
+  - git-delta
+  - shellcheck
   - 7zip
   - wget
   - rsync
@@ -67,6 +71,8 @@ pacman_packages:
   - micro
   - sqlite
   - openssh
+  - bind
+  - lsof
   # UFW's iptables dependency also accepts an installed iptables-legacy.
   - ufw
   - mtr
@@ -74,6 +80,8 @@ pacman_packages:
   - net-tools
   - postgresql-libs
   - git-lfs
+  - git-delta
+  - shellcheck
   - 7zip
   - wget
   - rsync
@@ -113,6 +121,8 @@ dnf_packages:
   - micro
   - sqlite
   - openssh-clients
+  - bind-utils
+  - lsof
   - iptables-nft
   - mtr
   - ufw
@@ -120,6 +130,8 @@ dnf_packages:
   - net-tools
   - postgresql
   - git-lfs
+  - git-delta
+  - ShellCheck
   - 7zip
   - wget
   - rsync
@@ -164,6 +176,8 @@ brew_packages:
   - fail2ban
   - libpq
   - git-lfs
+  - git-delta
+  - shellcheck
   - sevenzip
   - wget
   - rsync

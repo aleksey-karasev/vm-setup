@@ -57,7 +57,7 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, micro, sqlite3, SSH client, iptables, mtr, ufw, Fail2Ban, netstat, psql, git-lfs, 7zip, wget, rsync, restic, zip, build-essential, Go, rustc, Cargo, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, micro, sqlite3, SSH client, dig, lsof, iptables, mtr, ufw, Fail2Ban, netstat, psql, git-lfs, git-delta, ShellCheck, 7zip, wget, rsync, restic, zip, build-essential, Go, rustc, Cargo, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
@@ -96,6 +96,11 @@ Firewall and Fail2Ban service startup follow distro package defaults. On
 macOS, Homebrew installs `mtr` and Fail2Ban, and macOS provides `netstat` and
 the native packet filter command `pfctl`. The `iptables` and `ufw` tools
 require Linux Netfilter.
+
+Ubuntu and Debian install `dig` from `bind9-dnsutils`, Arch from `bind`,
+and Fedora from `bind-utils`. Linux installs the `lsof` package, and macOS
+provides both commands. The `git-delta` package installs the `delta`
+executable. Fedora packages `shellcheck` as `ShellCheck`.
 
 [VisiData](https://github.com/saulpw/visidata) (`vd` and `visidata`) and
 [Harlequin](https://github.com/tconbeer/harlequin) install as isolated uv tools
@@ -251,7 +256,8 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 - The hosted Ubuntu 24.04 VM does the same without texlive-full, and builds
   the NVIDIA driver.
 - The hosted macOS 15 runner executes the offline regression suite and installs
-  a small Homebrew package set (including restic, tmux, micro, SQLite and OpenSSH),
+  a small Homebrew package set (including restic, tmux, micro, SQLite, OpenSSH,
+  git-delta and ShellCheck),
   Go, Rust, VisiData, Harlequin, yq, GitHub CLI, Lazygit, shell configuration,
   Starship and fonts.
   It checks an unchanged rerun and both zsh and bash login shells. The full macOS
