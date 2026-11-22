@@ -10,6 +10,7 @@
     local_bin: "{{ home }}/.local/bin"
     pnpm_home: "{{ home }}/{{ 'Library/pnpm' if ansible_facts['os_family'] == 'Darwin' else '.local/share/pnpm' }}"
     homebrew_prefix: "{{ lookup('ansible.builtin.env', 'HOMEBREW_PREFIX') or ('/opt/homebrew' if ansible_facts['architecture'] == 'arm64' else '/usr/local') }}"
+    btop_config_dir: "{{ lookup('ansible.builtin.env', 'XDG_CONFIG_HOME') or (home ~ '/.config') }}/btop"
     machine_vars_file: "{{ home }}/.config/vm-setup/vars.yml"
     deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
     is_wsl: "{{ 'microsoft' in ansible_facts['kernel'] | lower }}"
@@ -175,11 +176,17 @@
           tags: [dnf]
 
         - name: Homebrew formulae
-          ansible.builtin.import_tasks: tasks/homebrew.yml
           vars:
             homebrew_names: "{{ brew_packages | difference(brew_packages_exclude) }}"
           when: ansible_facts['os_family'] == 'Darwin'
           tags: [brew]
+          block:
+            - name: Install Homebrew formulae
+              ansible.builtin.import_tasks: tasks/homebrew.yml
+
+            - name: Configure Homebrew btop
+              ansible.builtin.import_tasks: tasks/btop.yml
+              when: "'btop' in homebrew_names"
 
         - name: Homebrew casks
           ansible.builtin.import_tasks: tasks/homebrew.yml

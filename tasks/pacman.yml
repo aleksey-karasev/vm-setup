@@ -14,3 +14,7 @@
     # System Rustup owns the rustc and cargo command paths.
     rust_packages_to_skip: "{{ ['rust'] if rustup_binary.stat.executable | default(false) else [] }}"
     pacman_packages_to_install: "{{ pacman_packages | difference(pacman_packages_exclude + mtr_packages_to_skip + rust_packages_to_skip) }}"
+
+- name: Configure Arch btop
+  ansible.builtin.import_tasks: btop.yml
+  when: "'btop' in (pacman_packages | difference(pacman_packages_exclude))"

@@ -6,6 +6,10 @@
     use_backend: dnf5
   become: true
 
+- name: Configure Fedora btop
+  ansible.builtin.import_tasks: btop.yml
+  when: "'btop' in (dnf_packages | difference(dnf_packages_exclude))"
+
 - name: Expose Chromium under its upstream name
   ansible.builtin.file:
     src: /usr/bin/chromium-browser

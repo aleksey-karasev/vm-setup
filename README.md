@@ -244,7 +244,7 @@ ansible-playbook local.yml --ask-become-pass
 
 Every push to `main` runs [the test workflow](.github/workflows/test.yml):
 
-- `ubuntu:24.04`, `ubuntu:26.04`, `debian:13`, `archlinux:base-20261101.0.620205`
+- `ubuntu:24.04`, `ubuntu:26.04`, `debian:13`, `archlinux:base-20261108.0.623074`
   and `fedora:44` boot as
   clean systemd containers with a sudo password, install the full default
   set, must change nothing on a second run, and then execute every installed
