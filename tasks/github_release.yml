@@ -1,0 +1,77 @@
+---
+- name: "Install {{ release_tool }} with Homebrew"
+  ansible.builtin.import_tasks: homebrew.yml
+  vars:
+    homebrew_names: ["{{ release_tool }}"]
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: "Install {{ release_tool }} from its Linux releases"
+  when: ansible_facts['os_family'] != 'Darwin'
+  block:
+    - name: "Check the {{ release_tool }} architecture"
+      ansible.builtin.assert:
+        that: ansible_facts['architecture'] in ['x86_64', 'aarch64', 'arm64']
+        fail_msg: "{{ release_tool }} installation supports x86_64 and ARM64."
+        quiet: true
+
+    - name: "Check installed {{ release_tool }}"
+      ansible.builtin.command:
+        argv: ["{{ release_tool }}", --version]
+      register: release_installed
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: "Install or update {{ release_tool }}"
+      when:
+        - not ansible_check_mode
+        - release_installed.rc != 0 or upgrade | bool
+      vars:
+        release_tag: "{{ release_latest.location | basename }}"
+        release_arch: "{{ 'amd64' if ansible_facts['architecture'] == 'x86_64' else 'arm64' }}"
+        release_asset: "{{ release_tool }}_{{ release_tag | regex_replace('^v', '') }}"
+        release_archive: "{{ release_asset }}_linux_{{ release_arch }}.tar.gz"
+        release_url: "https://github.com/{{ release_repository }}/releases/download/{{ release_tag }}"
+      block:
+        - name: "Create a staging directory for {{ release_tool }}"
+          ansible.builtin.tempfile:
+            state: directory
+          register: release_stage
+          changed_when: false
+
+        - name: "Look up the latest {{ release_tool }} release"
+          ansible.builtin.uri:
+            url: "https://github.com/{{ release_repository }}/releases/latest"
+            follow_redirects: none
+            status_code: 302
+          register: release_latest
+
+        - name: "Download and verify the {{ release_tool }} archive"
+          ansible.builtin.get_url:
+            url: "{{ release_url }}/{{ release_archive }}"
+            checksum: "sha256:{{ release_url }}/{{ release_asset }}_checksums.txt"
+            dest: "{{ release_stage.path }}/{{ release_archive }}"
+            mode: "0600"
+          changed_when: false
+
+        - name: "Extract the {{ release_tool }} binary"
+          ansible.builtin.unarchive:
+            src: "{{ release_stage.path }}/{{ release_archive }}"
+            dest: "{{ release_stage.path }}"
+            remote_src: true
+            include: ["{{ release_tool }}"]
+          changed_when: false
+
+        - name: "Install the {{ release_tool }} binary"
+          ansible.builtin.copy:
+            src: "{{ release_stage.path }}/{{ release_tool }}"
+            dest: "{{ local_bin }}/{{ release_tool }}"
+            remote_src: true
+            mode: "0755"
+      always:
+        - name: "Remove the {{ release_tool }} staging directory"
+          ansible.builtin.file:
+            path: "{{ release_stage.path }}"
+            state: absent
+          when: release_stage.path is defined
+          changed_when: false

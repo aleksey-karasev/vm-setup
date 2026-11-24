@@ -10,7 +10,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for tool in curl wget git delta shellcheck sqlite3 micro yq vd visidata harlequin; do
+for tool in curl wget git delta shellcheck shfmt sqlite3 micro yq vd visidata harlequin \
+            actionlint ansible-lint dive; do
   echo "+ $tool --version"
   "$tool" --version >/dev/null
 done
