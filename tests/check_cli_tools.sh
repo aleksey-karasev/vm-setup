@@ -11,7 +11,7 @@ cleanup() {
 trap cleanup EXIT
 
 for tool in curl wget git delta shellcheck shfmt sqlite3 micro yq vd visidata harlequin \
-            actionlint ansible-lint dive; do
+            actionlint ansible-lint dive just; do
   echo "+ $tool --version"
   "$tool" --version >/dev/null
 done
@@ -34,6 +34,12 @@ git -c init.defaultBranch=main init --quiet "$test_directory/git"
 test -z "$(git -C "$test_directory/git" status --porcelain)"
 test "$(sqlite3 "$test_directory/data.sqlite" \
   'CREATE TABLE numbers (value INTEGER); INSERT INTO numbers VALUES (20), (22); SELECT SUM(value) FROM numbers;')" = 42
+
+cat >"$test_directory/justfile" <<'EOF'
+sum left right:
+    @echo $(({{left}} + {{right}}))
+EOF
+test "$(just --justfile "$test_directory/justfile" sum 20 22)" = 42
 
 case "$(yq --version)" in
   *github.com/mikefarah/yq/*) ;;

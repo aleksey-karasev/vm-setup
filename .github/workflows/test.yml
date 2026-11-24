@@ -39,7 +39,7 @@ jobs:
       VM_SETUP_REF: ${{ github.sha }}
       EXTRA_VARS: >-
         {"brew_packages": ["fd", "bat", "fzf", "zoxide", "git-lfs", "git-delta", "shellcheck",
-        "shfmt", "libpq", "restic", "tmux", "micro", "sqlite", "wget", "openssh", "mtr", "fail2ban",
+        "shfmt", "just", "libpq", "restic", "tmux", "micro", "sqlite", "wget", "openssh", "mtr", "fail2ban",
         "go", "rust"], "brew_casks": [], "uv_python_versions": ["3.13"],
         "uv_tools": ["visidata", "harlequin --python 3.13", "ansible-lint --python 3.13"]}
     steps:

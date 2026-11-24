@@ -395,7 +395,10 @@ class DistributionTasks(unittest.TestCase):
                         packages += (shlex.split(args) if isinstance(args, str)
                                      else args.get("name", args.get("argv", [])))
                 shellcheck_package = "ShellCheck" if tag == "dnf" else "shellcheck"
-                required = {"tmux", "micro", sqlite, ssh, "wget", "git", "git-delta", shellcheck_package, "shfmt"}
+                required = {
+                    "tmux", "micro", sqlite, ssh, "wget", "git", "git-delta",
+                    shellcheck_package, "shfmt", "just",
+                }
                 self.assertTrue(required.issubset(packages), packages)
                 self.assertTrue({"curl", "/usr/bin/curl"}.intersection(packages), packages)
                 self.assertTrue(network_packages[tag].issubset(packages), packages)
