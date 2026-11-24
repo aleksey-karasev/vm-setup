@@ -32,6 +32,7 @@ apt_packages:
   - git-lfs
   - git-delta
   - shellcheck
+  - shfmt
   - 7zip
   - wget
   - rsync
@@ -82,6 +83,7 @@ pacman_packages:
   - git-lfs
   - git-delta
   - shellcheck
+  - shfmt
   - 7zip
   - wget
   - rsync
@@ -132,6 +134,7 @@ dnf_packages:
   - git-lfs
   - git-delta
   - ShellCheck
+  - shfmt
   - 7zip
   - wget
   - rsync
@@ -178,6 +181,7 @@ brew_packages:
   - git-lfs
   - git-delta
   - shellcheck
+  - shfmt
   - sevenzip
   - wget
   - rsync
@@ -209,6 +213,7 @@ uv_tools:
   - pytest
   - cookiecutter
   - pre-commit
+  - ansible-lint --python 3.13
   - crewai
   - llmfit
   - mlflow

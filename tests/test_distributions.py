@@ -206,16 +206,24 @@ class DistributionTasks(unittest.TestCase):
             "            return dict(changed=False, stat=dict(executable=os.environ['TEST_MTR_INSTALLED'] == '1'))\n"
             "        if isinstance(arguments, dict) and arguments.get('path') == '/usr/bin/rustup':\n"
             "            return dict(changed=False, stat=dict(executable=os.environ['TEST_RUSTUP_INSTALLED'] == '1'))\n"
+            "        if self._task.args['module'] == 'ansible.builtin.tempfile':\n"
+            "            return dict(changed=False, path=os.path.join(os.path.dirname(os.environ['TEST_LOG']), 'release-stage'))\n"
             "        if self._task.args['module'] == 'ansible.builtin.uri':\n"
             "            if '/lazygit/' in arguments['url']:\n"
             "                return dict(changed=False, location='https://github.com/jesseduffield/lazygit/releases/tag/v0.55.1')\n"
             "            if '/mikefarah/yq/' in arguments['url']:\n"
             "                return dict(changed=False, location='https://github.com/mikefarah/yq/releases/tag/v4.48.1')\n"
+            "            if '/rhysd/actionlint/' in arguments['url']:\n"
+            "                return dict(changed=False, location='https://github.com/rhysd/actionlint/releases/tag/v1.7.12')\n"
+            "            if '/wagoodman/dive/' in arguments['url']:\n"
+            "                return dict(changed=False, location='https://github.com/wagoodman/dive/releases/tag/v0.13.1')\n"
             "            return dict(changed=False, location='https://github.com/ryanoasis/nerd-fonts/releases/tag/v3.4.0')\n"
             "        if isinstance(arguments, str) and arguments.endswith('/lazygit --version'):\n"
             "            return dict(changed=False, rc=0 if os.environ['TEST_LAZYGIT_INSTALLED'] == '1' else 1)\n"
             "        if isinstance(arguments, str) and arguments.endswith('/yq --version'):\n"
             "            return dict(changed=False, rc=0 if os.environ['TEST_YQ_INSTALLED'] == '1' else 1, stdout='yq version')\n"
+            "        if argv and argv[0] in ('actionlint', 'dive') and argv[1:] == ['--version']:\n"
+            "            return dict(changed=False, rc=0 if argv[0] in json.loads(os.environ['TEST_RELEASE_INSTALLED']) else 127)\n"
             "        if argv and argv[0].endswith('/pnpm') and 'list' in argv:\n"
             "            return dict(changed=False, rc=0, stdout='[]')\n"
             "        if self._task.args['module'] == 'ansible.builtin.command' and str(self._task.args['arguments']).startswith('rpm -qa '):\n"
@@ -255,7 +263,8 @@ class DistributionTasks(unittest.TestCase):
                  installed_rpms=(), architecture="x86_64", failure_message=None,
                  brew_installed=(), brew_outdated=None, colima_rc=0,
                  lazygit_installed=True, yq_installed=True, mtr_installed=False,
-                 rustup_installed=False, gather_facts=False, **variables):
+                 rustup_installed=False, release_installed=("actionlint", "dive"),
+                 gather_facts=False, **variables):
         facts = {
             "distribution": distro,
             "os_family": {"Fedora": "RedHat", "Archlinux": "Archlinux", "MacOSX": "Darwin"}.get(distro, "Debian"),
@@ -287,6 +296,7 @@ class DistributionTasks(unittest.TestCase):
                      TEST_YQ_INSTALLED="1" if yq_installed else "0",
                      TEST_MTR_INSTALLED="1" if mtr_installed else "0",
                      TEST_RUSTUP_INSTALLED="1" if rustup_installed else "0",
+                     TEST_RELEASE_INSTALLED=json.dumps(release_installed),
                      ANSIBLE_HOME=str(self.base / "ansible")),
             capture_output=True, text=True, timeout=120,
         )
@@ -385,7 +395,7 @@ class DistributionTasks(unittest.TestCase):
                         packages += (shlex.split(args) if isinstance(args, str)
                                      else args.get("name", args.get("argv", [])))
                 shellcheck_package = "ShellCheck" if tag == "dnf" else "shellcheck"
-                required = {"tmux", "micro", sqlite, ssh, "wget", "git", "git-delta", shellcheck_package}
+                required = {"tmux", "micro", sqlite, ssh, "wget", "git", "git-delta", shellcheck_package, "shfmt"}
                 self.assertTrue(required.issubset(packages), packages)
                 self.assertTrue({"curl", "/usr/bin/curl"}.intersection(packages), packages)
                 self.assertTrue(network_packages[tag].issubset(packages), packages)
@@ -428,6 +438,7 @@ class DistributionTasks(unittest.TestCase):
                             if call["name"] == "Install uv tools"]
                 self.assertIn(f"{self.base}/home/.local/bin/uv tool install visidata", installs)
                 self.assertIn(f"{self.base}/home/.local/bin/uv tool install harlequin --python 3.13", installs)
+                self.assertIn(f"{self.base}/home/.local/bin/uv tool install ansible-lint --python 3.13", installs)
                 packages = {shlex.split(command)[3].partition("[")[0] for command in installs}
                 self.assertEqual(packages & excluded_packages, set())
 
@@ -536,7 +547,8 @@ class DistributionTasks(unittest.TestCase):
         self.assertNotIn("Install Homebrew packages", names)
 
     def test_macos_component_tags_and_colima_start(self):
-        for tag, package in (("gh", "gh"), ("rclone", "rclone"), ("lazydocker", "lazydocker"), ("lazygit", "lazygit"), ("yq", "yq"), ("docker", "colima")):
+        components = [(name, name) for name in ("gh", "rclone", "lazydocker", "lazygit", "yq", "actionlint", "dive")]
+        for tag, package in [*components, ("docker", "colima")]:
             with self.subTest(tag=tag):
                 self.log.unlink(missing_ok=True)
                 calls = self.playbook("MacOSX", tags=tag, colima_rc=1)
@@ -597,6 +609,32 @@ class DistributionTasks(unittest.TestCase):
         calls = self.playbook(tags="yq", architecture="ppc64le", success=False,
                               failure_message="yq installation supports x86_64 and ARM64.")
         self.assertFalse(any(call["module"].endswith((".uri", ".get_url")) for call in calls))
+
+    def test_actionlint_and_dive_linux_release_assets(self):
+        systems = [("Ubuntu", "x86_64", "amd64"), ("Debian", "aarch64", "arm64"),
+                   ("Archlinux", "x86_64", "amd64"), ("Fedora", "aarch64", "arm64")]
+        tools = [("actionlint", "rhysd/actionlint", "1.7.12"), ("dive", "wagoodman/dive", "0.13.1")]
+        for distro, architecture, release_arch in systems:
+            with self.subTest(distro=distro, architecture=architecture):
+                self.log.unlink(missing_ok=True)
+                calls = {call["name"]: call for call in self.playbook(distro, tags="actionlint,dive", architecture=architecture)}
+                for tool, repo, version in tools:
+                    base_url = f"https://github.com/{repo}/releases/download/v{version}"
+                    asset = f"{tool}_{version}"
+                    download = calls[f"Download and verify the {tool} archive"]["arguments"]
+                    self.assertEqual(download["url"], f"{base_url}/{asset}_linux_{release_arch}.tar.gz")
+                    self.assertEqual(download["checksum"], f"sha256:{base_url}/{asset}_checksums.txt")
+                    self.assertEqual(calls[f"Extract the {tool} binary"]["arguments"]["include"], [tool])
+                    install = calls[f"Install the {tool} binary"]
+                    self.assertEqual(install["arguments"]["src"], str(self.base / "release-stage" / tool))
+                    self.assertEqual(install["arguments"]["dest"], str(self.base / "home/.local/bin" / tool))
+                    self.assertFalse(install["become"])
+
+    def test_actionlint_and_dive_upgrade_false_only_installs_missing_tools(self):
+        calls = self.playbook(tags="actionlint,dive", upgrade=False, release_installed=("actionlint",))
+        lookups = [call["arguments"]["url"] for call in calls if call["module"] == "ansible.builtin.uri"]
+        self.assertEqual(lookups, ["https://github.com/wagoodman/dive/releases/latest"])
+        self.assertIn("Install the dive binary", [call["name"] for call in calls])
 
     def test_unsupported_distribution_fails_before_installing(self):
         self.assertEqual(self.playbook("Rocky", success=False,

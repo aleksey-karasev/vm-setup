@@ -57,18 +57,20 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, micro, sqlite3, SSH client, dig, lsof, iptables, mtr, ufw, Fail2Ban, netstat, psql, git-lfs, git-delta, ShellCheck, 7zip, wget, rsync, restic, zip, build-essential, Go, rustc, Cargo, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, micro, sqlite3, SSH client, dig, lsof, iptables, mtr, ufw, Fail2Ban, netstat, psql, git-lfs, git-delta, ShellCheck, shfmt, 7zip, wget, rsync, restic, zip, build-essential, Go, rustc, Cargo, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
 | `brew` | on macOS, command-line equivalents of the Linux package lists; Inkscape, draw.io and Ungoogled Chromium applications | Homebrew formulae and casks |
 | `docker` | Docker Engine, buildx and compose plugins (macOS: Docker CLI and Colima) | Docker's apt/RPM repository (Arch: pacman; macOS: Homebrew) |
 | `gh` | GitHub CLI | GitHub's apt repository (Arch: pacman; Fedora: dnf; macOS: Homebrew) |
-| `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` including VisiData and Harlequin | uv installer and PyPI |
+| `uv` | uv, Python 3.9 to 3.14, the tools in `uv_tools` including Ansible Lint, VisiData and Harlequin | uv installer and PyPI |
 | `pnpm` | pnpm, Node.js | pnpm installer |
 | `rtk`, `rclone`, `duckdb`, `lazydocker` | rtk, rclone, DuckDB CLI, lazydocker | each tool's installer (macOS: rclone and lazydocker from Homebrew) |
 | `lazygit` | Lazygit terminal UI for Git | official GitHub release on Linux; Homebrew on macOS |
 | `yq` | Mike Farah's yq YAML/JSON processor | official GitHub release on Linux; Homebrew on macOS |
+| `actionlint` | GitHub Actions workflow checker | official GitHub release on Linux; Homebrew on macOS |
+| `dive` | Docker image layer explorer | official GitHub release on Linux; Homebrew on macOS |
 | `starship` | starship, its config and bash init; zsh init on macOS | starship installer, `files/starship.toml` |
 | `shell` | 100k-line shared history, fzf key bindings and zoxide init in bash (also zsh on macOS), Git LFS in `~/.gitconfig` | shell configuration, `git lfs install` |
 | `fonts` | Nerd Fonts in `nerd_fonts` | latest GitHub release |
@@ -101,6 +103,9 @@ Ubuntu and Debian install `dig` from `bind9-dnsutils`, Arch from `bind`,
 and Fedora from `bind-utils`. Linux installs the `lsof` package, and macOS
 provides both commands. The `git-delta` package installs the `delta`
 executable. Fedora packages `shellcheck` as `ShellCheck`.
+
+The `uv` tag installs Ansible Lint in an isolated environment using managed
+Python 3.13. [Ansible Lint documentation](https://docs.ansible.com/projects/lint/)
 
 [VisiData](https://github.com/saulpw/visidata) (`vd` and `visidata`) and
 [Harlequin](https://github.com/tconbeer/harlequin) install as isolated uv tools
@@ -141,8 +146,9 @@ macOS uses Homebrew formulae for CLI packages, including `texlive`, `libpq`
 (PostgreSQL client tools), `sevenzip` (`7zz`), and `gnu-tar` for font extraction.
 Compiler tools come from Xcode Command Line Tools. The `brew` tag installs and
 upgrades the configured formulae and casks; component tags such as `gh`, `docker`,
-`rclone`, `lazydocker`, `lazygit` and `yq` manage their own formulae. With `upgrade=false`, installed
-packages are left alone and Homebrew metadata is not refreshed.
+`rclone`, `lazydocker`, `lazygit`, `yq`, `actionlint` and `dive` manage their own
+formulae. With `upgrade=false`, installed packages are left alone and Homebrew
+metadata is not refreshed.
 Homebrew's [Chromium cask is disabled](https://formulae.brew.sh/cask/chromium),
 so macOS installs [Ungoogled Chromium](https://formulae.brew.sh/cask/ungoogled-chromium)
 and exposes its executable as `chromium`.
@@ -151,6 +157,11 @@ Lazygit installs on every supported system. On Linux, the `lazygit` tag extracts
 the latest official x86_64 or ARM64 release into `~/.local/bin`; macOS uses its
 Homebrew formula. Run `vm-setup --tags lazygit` to install or update it alone.
 With `upgrade=false`, an existing installation is kept.
+
+On Linux, the `actionlint` and `dive` tags verify the latest official x86_64 or
+ARM64 release archives with SHA-256 before installing the binaries into
+`~/.local/bin`. Run `vm-setup --tags actionlint,dive` to install or update both.
+With `upgrade=false`, both tags keep existing installations.
 
 The macOS `docker` tag installs Docker CLI, buildx, compose and
 [Colima](https://github.com/abiosoft/colima), starts Colima's default Linux VM,
@@ -256,9 +267,8 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
   the NVIDIA driver.
 - The hosted macOS 15 runner executes the offline regression suite and installs
   a small Homebrew package set (including restic, tmux, micro, SQLite, OpenSSH,
-  git-delta and ShellCheck),
-  Go, Rust, VisiData, Harlequin, yq, GitHub CLI, Lazygit, shell configuration,
-  Starship and fonts.
+  git-delta, ShellCheck and shfmt), Go, Rust, VisiData, Harlequin, Ansible Lint,
+  yq, GitHub CLI, Lazygit, actionlint, Dive, shell configuration, Starship and fonts.
   It checks an unchanged rerun and both zsh and bash login shells. The full macOS
   package list, GUI applications and Colima VM startup are not covered by this job.
 

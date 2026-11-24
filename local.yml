@@ -272,6 +272,20 @@
           ansible.builtin.import_tasks: tasks/yq.yml
           tags: [yq]
 
+        - name: actionlint
+          ansible.builtin.import_tasks: tasks/github_release.yml
+          vars:
+            release_tool: actionlint
+            release_repository: rhysd/actionlint
+          tags: [actionlint]
+
+        - name: Dive
+          ansible.builtin.import_tasks: tasks/github_release.yml
+          vars:
+            release_tool: dive
+            release_repository: wagoodman/dive
+          tags: [dive]
+
         - name: Rclone on macOS
           ansible.builtin.import_tasks: tasks/homebrew.yml
           vars:
