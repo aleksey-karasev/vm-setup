@@ -57,7 +57,7 @@ fail the play; failures are not treated as successful no-ops.
 
 | Tag | Installs | Source |
 | --- | --- | --- |
-| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, micro, sqlite3, SSH client, dig, lsof, iptables, mtr, ufw, Fail2Ban, netstat, psql, git-lfs, git-delta, ShellCheck, shfmt, 7zip, wget, rsync, restic, zip, build-essential, Go, rustc, Cargo, cmake, pkg-config | apt |
+| `apt` | ffmpeg, inkscape, pandoc, texlive-full, graphviz, ripgrep, duf, fd, bat, eza, fzf, zoxide, jq, tree, hyperfine, tmux, micro, sqlite3, SSH client, dig, lsof, iptables, mtr, ufw, Fail2Ban, netstat, psql, git-lfs, git-delta, ShellCheck, shfmt, just, 7zip, wget, rsync, restic, zip, build-essential, Go, rustc, Cargo, cmake, pkg-config | apt |
 | `snap` | drawio, btop, procs, dust, chromium | snap (chromium: apt on Debian) |
 | `pacman` | on Arch, everything in the `apt` and `snap` rows, and bash-completion | pacman |
 | `dnf` | on Fedora, equivalents of the `apt` row, bash-completion, btop, procs, dust and chromium | Fedora repositories |
@@ -267,7 +267,7 @@ Every push to `main` runs [the test workflow](.github/workflows/test.yml):
   the NVIDIA driver.
 - The hosted macOS 15 runner executes the offline regression suite and installs
   a small Homebrew package set (including restic, tmux, micro, SQLite, OpenSSH,
-  git-delta, ShellCheck and shfmt), Go, Rust, VisiData, Harlequin, Ansible Lint,
+  git-delta, ShellCheck, shfmt and `just`), Go, Rust, VisiData, Harlequin, Ansible Lint,
   yq, GitHub CLI, Lazygit, actionlint, Dive, shell configuration, Starship and fonts.
   It checks an unchanged rerun and both zsh and bash login shells. The full macOS
   package list, GUI applications and Colima VM startup are not covered by this job.
@@ -279,11 +279,12 @@ test data and removes the repository afterwards. Run it locally with
 `bash tests/check_restic.sh` when restic is installed.
 
 [tests/check_cli_tools.sh](tests/check_cli_tools.sh) verifies the requested CLI
-commands and exercises a SQLite database, an empty Git repository, YAML editing
-and JSON conversion with Mike Farah's yq, CSV-to-TSV conversion with VisiData,
-and a tmux session on a private socket. It runs Harlequin's bundled adapters
-against temporary SQLite and DuckDB databases, checks persistence, and opens
-the SQL editor headlessly. All test data is temporary.
+commands and exercises a SQLite database, an empty Git repository, a `just`
+recipe, YAML editing and JSON conversion with Mike Farah's yq, CSV-to-TSV
+conversion with VisiData, and a tmux session on a private socket. It runs
+Harlequin's bundled adapters against temporary SQLite and DuckDB databases,
+checks persistence, and opens the SQL editor headlessly. All test data is
+temporary.
 
 [tests/check_language_tools.sh](tests/check_language_tools.sh) creates a Go
 module, installs and runs its executable, then builds and runs a Cargo project

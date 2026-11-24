@@ -33,6 +33,7 @@ apt_packages:
   - git-delta
   - shellcheck
   - shfmt
+  - just
   - 7zip
   - wget
   - rsync
@@ -84,6 +85,7 @@ pacman_packages:
   - git-delta
   - shellcheck
   - shfmt
+  - just
   - 7zip
   - wget
   - rsync
@@ -135,6 +137,7 @@ dnf_packages:
   - git-delta
   - ShellCheck
   - shfmt
+  - just
   - 7zip
   - wget
   - rsync
@@ -182,6 +185,7 @@ brew_packages:
   - git-delta
   - shellcheck
   - shfmt
+  - just
   - sevenzip
   - wget
   - rsync
